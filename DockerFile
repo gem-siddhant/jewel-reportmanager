@@ -1,0 +1,7 @@
+FROM maven:3.8.6-openjdk-11-slim
+MAINTAINER narendra.singh@geminisolutions.com
+COPY ./target/DashBoardManager*.jar /home/
+WORKDIR /home/
+EXPOSE 8002
+RUN mkdir /var/log/jewel-dashboardmanager
+ENTRYPOINT ["java","-jar","DashBoardManager-1.0.0.jar"]
