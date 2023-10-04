@@ -1,152 +1,102 @@
 package com.jewel.reportmanager.controller;
 
-import com.codahale.metrics.annotation.Timed;
+import com.jewel.reportmanager.dto.Response;
 import com.jewel.reportmanager.dto.RuleApiDto;
+import com.jewel.reportmanager.entity.RuleApi;
+import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.service.RuleService;
-import io.swagger.v3.oas.annotations.Hidden;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import java.text.ParseException;
 import java.util.Map;
 
+@Validated
 @RestController
 public class RuleController {
 
     @Autowired
     private RuleService ruleService;
+    @Autowired
+    private ModelMapper modelMapper;
 
-    @Timed
-    @PostMapping(path = "/rule", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> getRuleReport(@RequestBody RuleApiDto payload, HttpServletRequest request,
-                                                @RequestParam(value = "pageNo", required = false) Integer pageNo,
-                                                @RequestParam(value = "sort", required = false) Integer sort,
-                                                @RequestParam(value = "sortedColumn", required = false) String sortedColumn) throws ParseException {
-        return ruleService.getRuleReport(payload, request, pageNo, sort, sortedColumn);
+    @PostMapping(path = "/v1/rule", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Response> getRuleReport(@RequestBody @Valid final RuleApiDto payload, HttpServletRequest request,
+                                                  @RequestParam(value = "pageNo", required = false) final Integer pageNo,
+                                                  @RequestParam(value = "sort", required = false) final Integer sort,
+                                                  @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) throws ParseException {
+        try {
+            RuleApi ruleApi = modelMapper.map(payload, RuleApi.class);
+            return ResponseEntity.ok(ruleService.getRuleReport(ruleApi, request, pageNo, sort, sortedColumn));
+        } catch (CustomDataException ex) {
+            return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
+        }
     }
 
-//    @Timed
-//    @Hidden
-//    @GetMapping(path = "/rule/action", produces = MediaType.APPLICATION_JSON_VALUE)
-//    public ResponseEntity<Object> getRuleActionReport(@RequestParam(required = false) String s_run_id,
-//                                                      @RequestParam(required = false) String tc_run_id, HttpServletRequest request,
-//                                                      @RequestParam(value = "pageNo", required = false) Integer pageNo,
-//                                                      @RequestParam(value = "sort", required = false) Integer sort,
-//                                                      @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-//        return ruleService.getRuleActionReport(s_run_id, tc_run_id, request, pageNo, sort, sortedColumn);
-//    }
-//
-//    @Timed
-//    @GetMapping(path = "/v2/rule/overview", produces = MediaType.APPLICATION_JSON_VALUE)
-//    @Hidden
-//    public ResponseEntity<Object> getRuleActionReportVersionV2(@RequestParam(required = false) String s_run_id,
-//                                                               @RequestParam(required = false) String tc_run_id, HttpServletRequest request,
-//                                                               @RequestParam(value = "pageNo", required = false) Integer pageNo,
-//                                                               @RequestParam(value = "sort", required = false) Integer sort,
-//                                                               @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-//        return ruleService.getRuleActionReportWithoutTestCaseDetails(s_run_id, tc_run_id, request, pageNo, sort,
-//                sortedColumn);
-//    }
-//
-//    @Timed
-//    @GetMapping(path = "/v2/rule/testcases", produces = MediaType.APPLICATION_JSON_VALUE)
-//    @Hidden
-//    public ResponseEntity<Object> getTestCasesByS_run_id(@RequestParam(required = false) String s_run_id,
-//                                                         @RequestParam(required = false) String tc_run_id, HttpServletRequest request,
-//                                                         @RequestParam(value = "pageNo", required = false) Integer pageNo,
-//                                                         @RequestParam(value = "sort", required = false) Integer sort,
-//                                                         @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-//        return ruleService.getTestCaseDetailsByS_run_id(s_run_id, pageNo, sort, sortedColumn);
-//    }
-//
-//    @Timed
-//    @GetMapping(path = "/rule/action/steps", produces = MediaType.APPLICATION_JSON_VALUE)
-//    @Hidden
-//    public ResponseEntity<Object> getRuleActionTestStepReport(@RequestParam String tc_run_id, HttpServletRequest request) {
-//        return ruleService.getRuleActionTestStepReport(tc_run_id, request);
-//    }
-//
-//    @Timed
-//    @GetMapping(value = "/rule/action/chart", produces = MediaType.APPLICATION_JSON_VALUE)
-//    @Hidden
-//    public ResponseEntity getRuleActionChart(@RequestParam(required = false) String s_run_id,
-//                                             @RequestParam(value = "pageNo", required = false) Integer pageNo,
-//                                             @RequestParam(value = "sort", required = false) Integer sort,
-//                                             @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-//        return ruleService.getRuleActionChart(s_run_id, pageNo, sort, sortedColumn);
-//    }
-//
-//    @Timed
-//    @Hidden
-//    @GetMapping(path = "/v2/rule/action", produces = MediaType.APPLICATION_JSON_VALUE)
-//    public ResponseEntity<Object> getRuleActionReportV2(@RequestParam(required = false) String s_run_id,
-//                                                        @RequestParam(required = false) String tc_run_id, HttpServletRequest request,
-//                                                        @RequestParam(value = "pageNo", required = false) Integer pageNo,
-//                                                        @RequestParam(value = "sort", required = false) Integer sort,
-//                                                        @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-//        return ruleService.getRuleActionReportV2(s_run_id, tc_run_id, request, pageNo, sort, sortedColumn);
-//    }
-
-    @Timed
     @GetMapping(path = "/v3/rule/action", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> getRuleActionReportV3(@RequestParam(required = false) String s_run_id,
-                                                        @RequestParam(required = false) String tc_run_id, HttpServletRequest request,
-                                                        @RequestParam(value = "pageNo", required = false) Integer pageNo,
-                                                        @RequestParam(value = "sort", required = false) Integer sort,
-                                                        @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-        return ruleService.getRuleActionReportV3(s_run_id, tc_run_id, request, pageNo, sort, sortedColumn);
+    public ResponseEntity<Response> getRuleActionReportV3(@RequestParam(required = false) final String s_run_id,
+                                                        @RequestParam(required = false) final String tc_run_id, HttpServletRequest request,
+                                                        @RequestParam(value = "pageNo", required = false) final Integer pageNo,
+                                                        @RequestParam(value = "sort", required = false) final Integer sort,
+                                                        @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) {
+        try {
+            return ResponseEntity.ok(ruleService.getRuleActionReportV3(s_run_id, tc_run_id, request, pageNo, sort, sortedColumn));
+        } catch (CustomDataException ex) {
+            return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType(), ex.getSubOperationType()));
+        }
     }
 
-    @Timed
-    @PutMapping(path = "/buildDetails", produces = "application/json")
-    public ResponseEntity<Object> updateBuildDetails(@RequestParam(value = "s_run_id") String s_run_id,
-                                                     @RequestParam(value = "build_id", required = false) String buildId,
-                                                     @RequestParam(value = "sprint_name", required = false) String sprint_name,
+    @PutMapping(path = "/v1/buildDetails", produces = "application/json")
+    public ResponseEntity<Response> updateBuildDetails(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id,
+                                                     @RequestParam(value = "build_id", required = false) final String buildId,
+                                                     @RequestParam(value = "sprint_name", required = false) final String sprint_name,
                                                      HttpServletRequest request) {
-
-        return ruleService.updateBuildDetails(s_run_id, buildId, sprint_name, request);
+        try {
+            return ResponseEntity.ok(ruleService.updateBuildDetails(s_run_id, buildId, sprint_name, request));
+        } catch (CustomDataException ex) {
+            return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
+        }
     }
 
-    @Timed
-    @GetMapping(path = "/buildDetails/json", produces = "application/json")
-    public ResponseEntity<Object> getBuildDetails(@RequestParam(value = "s_run_id") String s_run_id,
+    @GetMapping(path = "/v1/buildDetails/json", produces = "application/json")
+    public ResponseEntity<Response> getBuildDetails(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id,
                                                   HttpServletRequest request) {
-        return ruleService.getBuildDetails(s_run_id, request);
+        try {
+            return ResponseEntity.ok(ruleService.getBuildDetails(s_run_id, request));
+        } catch (CustomDataException ex) {
+            return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
+        }
     }
 
-//    @Timed
-//    @GetMapping(path = "/v2/steps")
-//    @Hidden
-//    public ResponseEntity<Object> getSteps(@RequestParam("tc_run_id") String tc_run_id, HttpServletRequest request) {
-//        return this.ruleService.getStepsDataByTcRunId(tc_run_id, request);
-//    }
-//
-//    @Timed
-//    @GetMapping("/v2/last5RunStackedBarChartOfReport")
-//    @Hidden
-//    public ResponseEntity<Object> last5RunStackedBarChartOfReportBySRunId(@RequestParam(required = false) String s_run_id,
-//                                                                          HttpServletRequest request) {
-//        return this.ruleService.last5RunStackedBarChartOfReportBySRunId(s_run_id, request);
-//    }
-
-    @Timed
-    @GetMapping(path = "/tickets")
-    public ResponseEntity<Object> suiteTickets(@RequestParam(value = "s_run_id") String s_run_id, HttpServletRequest request) {
-        return this.ruleService.getTickets(s_run_id, request);
+    @GetMapping(path = "/v1/tickets")
+    public ResponseEntity<Response> suiteTickets(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id, HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(ruleService.getTickets(s_run_id, request));
+        } catch (CustomDataException ex) {
+            return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType(), ex.getSubOperationType()));
+        }
     }
 
-    @Timed
-    @PostMapping(path = "/timeline")
-    public ResponseEntity<Object> suiteTimeline(@RequestBody Map<String, Object> payload, HttpServletRequest request,
-                                                @RequestParam(value = "category", required = false) String category,
-                                                @RequestParam(value = "search", required = false) String search,
-                                                @RequestParam(value = "pageNo", required = false) Integer pageNo,
-                                                @RequestParam(value = "sort", required = false) Integer sort,
-                                                @RequestParam(value = "sortedColumn", required = false) String sortedColumn) throws ParseException {
-        return this.ruleService.getSuiteTimeline(payload, request, category, search, pageNo, sort, sortedColumn);
+    @PostMapping(path = "/v1/timeline")
+    public ResponseEntity<Response> suiteTimeline(@RequestBody @NotEmpty final Map<String, Object> payload, HttpServletRequest request,
+                                                  @RequestParam(value = "category", required = false) final String category,
+                                                  @RequestParam(value = "search", required = false) final String search,
+                                                  @RequestParam(value = "pageNo", required = false) final Integer pageNo,
+                                                  @RequestParam(value = "sort", required = false) final Integer sort,
+                                                  @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) throws ParseException {
+        try {
+            return ResponseEntity.ok(ruleService.getSuiteTimeline(payload, request, category, search, pageNo, sort, sortedColumn));
+        } catch (CustomDataException ex) {
+            return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType(), ex.getSubOperationType()));
+        }
     }
 
 }

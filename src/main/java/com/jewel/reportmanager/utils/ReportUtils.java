@@ -13,6 +13,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.aggregation.*;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static com.jewel.reportmanager.enums.OperationType.Failure;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
+import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.USER_DETAILS_NOT_FOUND;
 import static javax.accessibility.AccessibleState.ACTIVE;
 
@@ -82,7 +85,7 @@ public class ReportUtils {
         UserDto userDto = getUsernameAndIsDeleted(username, false);
         if (userDto == null) {
             log.error("Error occurred while trying to fetch user for username: {}", username);
-            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
+            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
         log.info("User details from servlet request: {}", userDto);
         return userDto;
@@ -153,11 +156,6 @@ public class ReportUtils {
         columns.put("start time", "s_start_time");
         columns.put("end time", "s_end_time");
         return columns;
-    }
-
-    public static ProjectDto validateProject(Long pid) {
-        Query query = new Query(Criteria.where("pid").is(pid).and("status").is("ACTIVE"));
-        return getProjectByPidAndStatus(pid, ACTIVE.toString());
     }
 
     public static ProjectDto getProjectByPidAndStatus(Long pid, String status) {
@@ -297,7 +295,7 @@ public class ReportUtils {
 
             }
         }
-        // System.out.println(count+""+getSuites.size());
+
         if (count == testExes.size()) {
             return 1;
         }
@@ -305,13 +303,58 @@ public class ReportUtils {
         return res;
     }
 
-    public static String averageFixTime(List<TestExeCommon> testExes) {
+    public static double brokenIndex(List<SuiteExeDto> suites) {
 
-        TestExeCommon curr = null;
-        TestExeCommon prev = null;
-        List<Long> averageTimes = new ArrayList<Long>();
+        if (suites.size() == 1) {
+            if (suites.get(0).getStatus().equalsIgnoreCase("FAIL")) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+        double denom = Math.floor(suites.size() / (double) 2);
 
-        for (TestExeCommon testExe : testExes) {
+        double numenator = 0;
+        int count = 0;
+        SuiteExeDto curr = null;
+        SuiteExeDto prev = null;
+
+        for (SuiteExeDto suite : suites) {
+
+            if (curr == null && prev == null) {
+                if (suite.getStatus().equalsIgnoreCase("FAIL")) {
+                    count++;
+                }
+                curr = suite;
+            } else {
+                if (suite.getStatus().equalsIgnoreCase("FAIL")) {
+                    count++;
+                }
+                prev = curr;
+                curr = suite;
+                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
+                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
+                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
+                    numenator++;
+                }
+
+            }
+        }
+        // System.out.println(count+""+getSuites.size());
+        if (count == suites.size()) {
+            return 1;
+        }
+        double res = Math.round((float) (numenator / denom) * 100.0) / 100.0;
+        return res;
+    }
+
+    public static String averageFixTime(List<TestExeCommonDto> testExes) {
+
+        TestExeCommonDto curr = null;
+        TestExeCommonDto prev = null;
+        List<Long> averageTimes = new ArrayList<>();
+
+        for (TestExeCommonDto testExe : testExes) {
 
             if (curr == null && prev == null) {
 
@@ -361,13 +404,6 @@ public class ReportUtils {
             if (Math.floor((average % 86400) / 3600) != 0) {
                 ans = ans + df.format(Math.floor((average % 86400) / 3600)) + " hours ";
             }
-            // if (Math.floor((((average % 86400))%3600) / 60) != 0) {
-            // ans = ans + df.format(Math.floor( ((average % 86400))%3600) / 60) + " min ";
-            // }
-            // if (Math.floor((((average%86400)%3600)%60)) != 0) {
-            // ans = ans + df.format((((average%86400)%3600)%60)) + " sec(s)";
-            // }
-
             res = ans;
         }
 
@@ -377,18 +413,82 @@ public class ReportUtils {
         return res;
     }
 
-    public static String lastRunStatus(List<TestExeCommon> testExes) {
+    public static long averageFixTime(List<SuiteExeDto> suites) {
+
+        SuiteExeDto curr = null;
+        SuiteExeDto prev = null;
+        List<Long> averageTimes = new ArrayList<>();
+
+        for (SuiteExeDto suite : suites) {
+
+            if (curr == null && prev == null) {
+
+                curr = suite;
+            } else {
+
+                prev = curr;
+                curr = suite;
+                if ((curr.getStatus().equalsIgnoreCase("PASS") || curr.getStatus().equalsIgnoreCase("INFO")
+                        || curr.getStatus().equalsIgnoreCase("EXE") || curr.getStatus().equalsIgnoreCase("WARN"))
+                        && (prev.getStatus().equalsIgnoreCase("FAIL") || prev.getStatus().equalsIgnoreCase("ERR"))) {
+                    averageTimes.add(curr.getS_start_time() - prev.getS_start_time());
+                }
+
+            }
+        }
+        double sum = 0;
+        for (double current : averageTimes) {
+            sum = sum + current;
+
+        }
+        double average = sum / averageTimes.size();
+        average = average / 1000;
+        return (long) average;
+
+    }
+
+    public static long getDownTime(List<SuiteExeDto> suites) {
+        if (suites.get(0).getStatus().equalsIgnoreCase("PASS")) {
+            return 0;
+        } else {
+            SuiteExeDto prev = null;
+            long firstFailTime = 0;
+            for (SuiteExeDto suite : suites) {
+                if (suite.getStatus().equalsIgnoreCase("PASS")) {
+                    break;
+                }
+                prev = suite;
+            }
+            if (prev != null) {
+                firstFailTime = prev.getS_start_time();
+            }
+
+            Date d = new Date();
+            long downTime = (d.getTime() - firstFailTime) / 1000;
+            if (downTime < 0) {
+                return 0;
+            }
+            return downTime;
+        }
+    }
+
+    public static int stabilityIndex(double brokenIndex) {
+        return 100 - ((int) (100 * brokenIndex));
+    }
+
+
+    public static String lastRunStatus(List<TestExeCommonDto> testExes) {
         return testExes.get(0).getStatus();
     }
 
-    public static String getFailingSince(List<TestExeCommon> testExes, double brokenIndex) {
+    public static String getFailingSince(List<TestExeCommonDto> testExes, double brokenIndex) {
         if (brokenIndex == 0) {
             return "No Issues";
         } else if (brokenIndex == 1) {
             return "Never Fixed";
         } else {
             int count = 0;
-            for (TestExeCommon testExe : testExes) {
+            for (TestExeCommonDto testExe : testExes) {
                 if (!testExe.getStatus().equalsIgnoreCase("FAIL")) {
                     break;
                 }
@@ -402,10 +502,9 @@ public class ReportUtils {
         }
     }
 
-    public static Long getLastPass(List<TestExeCommon> testExes) {
-        for (TestExeCommon testExe : testExes) {
+    public static Long getLastPass(List<TestExeCommonDto> testExes) {
+        for (TestExeCommonDto testExe : testExes) {
             if (testExe.getStatus().equalsIgnoreCase("PASS")) {
-                // System.out.println(testExe.getTc_run_id());
                 return testExe.getStart_time();
             }
 
@@ -413,13 +512,13 @@ public class ReportUtils {
         return 0L;
     }
 
-    public static String getDownTime(List<TestExeCommon> testExes) {
+    public static String getDownTime(List<TestExeCommonDto> testExes) {
         if (testExes.get(0).getStatus().equalsIgnoreCase("PASS")) {
             return "No Issues";
         } else {
-            TestExeCommon prev = null;
+            TestExeCommonDto prev = null;
             long firstFailTime = 0;
-            for (TestExeCommon testExe : testExes) {
+            for (TestExeCommonDto testExe : testExes) {
                 if (testExe.getStatus().equalsIgnoreCase("PASS")) {
                     break;
                 }
@@ -459,13 +558,6 @@ public class ReportUtils {
                 if (Math.floor((downTime % 86400) / (double) 3600) != 0) {
                     ans = ans + df.format(Math.floor((downTime % 86400) / (double) 3600)) + " hours ";
                 }
-                // if (Math.floor((((downTime % 86400))%3600) / 60) != 0) {
-                // ans = ans + df.format(Math.floor( ((downTime % 86400))%3600) / 60) + " min ";
-                // }
-                // if (Math.floor((((downTime%86400)%3600)%60)) != 0) {
-                // ans = ans + df.format((((downTime%86400)%3600)%60)) + " sec(s)";
-                // }
-
                 res = ans;
             }
 
@@ -500,17 +592,17 @@ public class ReportUtils {
 
     public static Object createDoughnutChart(Map<String, Long> res) {
 
-        Map<String, Object> map = new HashMap<String, Object>();
-        List<String> labels = new ArrayList<String>();
+        Map<String, Object> map = new HashMap<>();
+        List<String> labels = new ArrayList<>();
         labels.addAll(res.keySet());
 
-        List<Object> datasets = new ArrayList<Object>();
-        Map<String, Object> datasetValue = new HashMap<String, Object>();
-        List<Long> data = new ArrayList<Long>();
-        List<String> backgroundColor = new ArrayList<String>();
-        List<String> borderColor = new ArrayList<String>();
+        List<Object> datasets = new ArrayList<>();
+        Map<String, Object> datasetValue = new HashMap<>();
+        List<Long> data = new ArrayList<>();
+        List<String> backgroundColor = new ArrayList<>();
+        List<String> borderColor = new ArrayList<>();
         for (String status : labels) {
-            data.add((Long) res.get(status));
+            data.add(res.get(status));
             backgroundColor.add(StatusColor.valueOf(status).color);
             borderColor.add(StatusColor.valueOf(status).color);
 
@@ -526,7 +618,7 @@ public class ReportUtils {
 
     }
 
-    public double getScore(double brokenIndex) {
+    public static double getScore(double brokenIndex) {
         return Math.round((999 - (999 * (0.35 * brokenIndex))) * 100.0) / 100.0;
     }
 
@@ -557,14 +649,7 @@ public class ReportUtils {
         criteria.add(Criteria.where("start_time").gt(starttime));
         criteria.add(Criteria.where("end_time").lt(endtime));
 
-        // if(!(status.equalsIgnoreCase("TOTAL"))){
-        // criteria.add(Criteria.where("status").is(status));
-        // }
-        // query.addCriteria(new Criteria().andOperator(criteria.toArray(new
-        // Criteria[criteria.size()])));
-        List<String> disticntStatus = mongoOperations.findDistinct(query, "status", TestExeCommon.class, String.class);
-        // long totalcount=mongoOperations.count(query, SuiteExe.class);
-        // res.put("TOTAL RUN", totalcount);
+        List<String> disticntStatus = mongoOperations.findDistinct(query, "status", TestExeCommonDto.class, String.class);
         for (String status : disticntStatus) {
             Query queryStatus = new Query();
             List<Criteria> criteriaStatus = new ArrayList<Criteria>();
@@ -573,59 +658,38 @@ public class ReportUtils {
             criteriaStatus.add(Criteria.where("end_time").lt(endtime));
             criteriaStatus.add(Criteria.where("status").is(status));
             queryStatus.addCriteria(new Criteria().andOperator(criteriaStatus.toArray(new Criteria[criteria.size()])));
-            res.put(status.toUpperCase(), mongoOperations.count(queryStatus, TestExeCommon.class));
+            res.put(status.toUpperCase(), mongoOperations.count(queryStatus, TestExeCommonDto.class));
 
         }
-        // res.put("TOTAL RUN", mongoOperations.count(query, SuiteExe.class));
+
         return res;
     }
 
-    public static List<TestExeCommon> getSortedList(List<TestExeCommon> list) {
-        List<TestExeCommon> testExes = new ArrayList<TestExeCommon>();
+    public static List<TestExeCommonDto> getSortedList(List<TestExeCommonDto> list) {
+        List<TestExeCommonDto> testExes = new ArrayList<>();
         testExes.addAll(list);
         Collections.sort(testExes, new TimeComparatorTestExeCommon());
         return testExes;
     }
 
-    public TestExe createManualTestcase(Test test, String s_run_id, HttpServletRequest request) {
-        Long start_time = System.currentTimeMillis();
-        List<Map<String, Object>> data = new ArrayList<>();
-        ObjectMapper oMapper = new ObjectMapper();
+    public static List<SuiteExeDto> getSortedList(List<SuiteExeDto> list) {
+        List<SuiteExeDto> suites = new ArrayList<SuiteExeDto>();
+        suites.addAll(list);
+        Collections.sort(suites, new TimeComparator());
+        return suites;
+    }
 
-        TestExe testExe = new TestExe();
-        testExe.setS_run_id(s_run_id);
-        testExe.setTc_run_id(test.getName() + "_" + UUID.randomUUID());
-        testExe.setName(test.getName());
-        testExe.setTestcase_id(test.getTc_id());
-        testExe.setStatus(StatusColor.EXE.toString());
-        testExe.setStart_time(start_time);
-        testExe.setCategory(test.getCategory());
-        testExe.setProduct_type(test.getTestcaseType().name());
-        testExe.setRun_type(test.getTestcaseType().name());
-        testExe.setRun_mode("JEWEL");
-        List<Map<String, Object>> metadata = new ArrayList<>();
-        Map<String, Object> map1 = new HashMap<>();
-        map1.put("TESTCASE NAME", test.getName());
-        metadata.add(map1);
-        testExe.setMeta_data(metadata);
-        List<Object> steps = new ArrayList<>();
-        int index = 1;
-        for (TestSteps testStep : test.getTestSteps()) {
-            LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-            map.put("id", index);
-            map.put("status", StatusColor.EXE.toString());
-            map.put("step name", testStep.getName());
-            map.put("step description", testStep.getDescription());
-            map.put("expected result", testStep.getExpectedResult());
-            steps.add(map);
-            index++;
+    static class TimeComparator implements Comparator<SuiteExeDto> {
+
+        @Override
+        public int compare(SuiteExeDto data, SuiteExeDto data2) {
+            if (data.getS_start_time() == data2.getS_start_time())
+                return 0;
+            else if (data.getS_start_time() < data2.getS_start_time())
+                return 1;
+            else
+                return -1;
         }
-        Steps steps1 = new Steps();
-        steps1.setTc_run_id(testExe.getTc_run_id());
-        steps1.setSteps(steps);
-        steps1.setS_run_id(testExe.getS_run_id());
-        stepsRepository.save(steps1);
-        return testExe;
     }
 
     private List<Map<String, Object>> getLinkedSteps(List<Map<String, Object>> data, Long isolatedVersionId, int id,
@@ -633,9 +697,9 @@ public class ReportUtils {
         if (data == null) {
             return null;
         }
-        System.out.println("working");
+        log.info("working");
         Query query = new Query(Criteria.where("isolatedVersionId").is(isolatedVersionId).and("isDeleted").is(false)
-                .and("testcaseType").is(TestCaseType.MANUAL.toString()));
+                .and("testcaseType").is(MANUAL.toString()));
         Test manualTestCase = mongoOperations.findOne(query, Test.class);
         if (manualTestCase == null) {
             return null;
@@ -723,65 +787,6 @@ public class ReportUtils {
 
     }
 
-    public List<Object> addVarianceInSteps(List<Object> steps, SuiteExeDto suite, TestExeDto testExe) {
-        Query varianceQuery = new Query(Criteria.where("pid").is(suite.getP_id()).and("reportName")
-                .is(suite.getReport_name()).and("category").is("Step").and("env").is(suite.getEnv())
-                .and("varianceStatus").is("ACTIVE").and("endDate").gt(suite.getS_start_time()));
-        List<VarianceClassification> varianceClassifications = mongoOperations.find(varianceQuery,
-                VarianceClassification.class);
-        List<Object> data = steps;
-
-        int index = 0;
-        for (Object step : steps) {
-            Map<String, Object> stepData = (Map<String, Object>) step;
-            stepData.put("id", index + 1);
-            data.set(index, stepData);
-            index++;
-        }
-        for (VarianceClassification varianceClassification : varianceClassifications) {
-            index = 0;
-            for (Object step : steps) {
-                Map<String, Object> stepData = (Map<String, Object>) step;
-                if (varianceClassification.getMatch().equalsIgnoreCase("EXACT") && ((stepData.containsKey("step name")
-                        && stepData.get("step name").toString().equals(varianceClassification.getName()))
-                        || (stepData.containsKey("Step Name")
-                        && stepData.get("Step Name").toString().equals(varianceClassification.getName())))) {
-                    if (stepData.containsKey("status")
-                            && (stepData.get("status").toString().equalsIgnoreCase("FAIL")
-                            || stepData.get("status").toString().equalsIgnoreCase("ERR"))) {
-                        stepData.put("VARIANCEID", varianceClassification.getVarianceId());
-                        Set<Long> varianceIds = suite.getVarianceIds();
-                        varianceIds.add(varianceClassification.getVarianceId());
-                        suite.setVarianceIds(varianceIds);
-                        List<Long> testVarianceIds = testExe.getStepVarianceIds();
-                        testVarianceIds.add(varianceClassification.getVarianceId());
-                        testExe.setStepVarianceIds(testVarianceIds);
-                        data.set(index, stepData);
-                    }
-                } else if (varianceClassification.getMatch().equalsIgnoreCase("Like")
-                        && ((stepData.containsKey("step name")
-                        && stepData.get("step name").toString().toUpperCase()
-                        .contains(varianceClassification.getName().toUpperCase()))
-                        || (stepData.containsKey("Step Name")
-                        && stepData.get("Step Name").toString().toUpperCase()
-                        .equals(varianceClassification.getName().toUpperCase())))
-                        && (stepData.get("status").toString().equalsIgnoreCase("FAIL")
-                        || stepData.get("status").toString().equalsIgnoreCase("ERR"))) {
-                    stepData.put("VARIANCEID", varianceClassification.getVarianceId());
-                    Set<Long> varianceIds = suite.getVarianceIds();
-                    varianceIds.add(varianceClassification.getVarianceId());
-                    suite.setVarianceIds(varianceIds);
-                    List<Long> testVarianceIds = testExe.getStepVarianceIds();
-                    testVarianceIds.add(varianceClassification.getVarianceId());
-                    testExe.setStepVarianceIds(testVarianceIds);
-                    data.set(index, stepData);
-                }
-                index++;
-            }
-        }
-        return data;
-    }
-
     public static boolean checkoneListContainsElementOfAnotherList(List<Long> mainList, List<Long> list) {
         for (Long value : list) {
             if (mainList.contains(value)) {
@@ -812,7 +817,7 @@ public class ReportUtils {
         return key.replace('_', ' ').toUpperCase();
     }
 
-    class TimeComparatorTestExeCommon implements Comparator<TestExeCommonDto> {
+    static class TimeComparatorTestExeCommon implements Comparator<TestExeCommonDto> {
 
         @Override
         public int compare(TestExeCommonDto data, TestExeCommonDto data2) {
@@ -996,143 +1001,6 @@ public class ReportUtils {
 
     }
 
-
-    public static Object createInfraAndUserHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite, String dataCategory) {
-        StringBuilder machine = new StringBuilder();
-        String os = getSuite.getOs();
-        StringBuilder base_user = new StringBuilder();
-        StringBuilder token_user = new StringBuilder();
-        String framework_version = getSuite.getFramework_version();
-        String framework_name = getSuite.getFramework_name();
-
-        Set<String> machineSet = new HashSet<>();
-        Set<String> baseUserSet = new HashSet<>();
-        Set<String> tokenUserSet = new HashSet<>();
-        Map<String, Object> data = new HashMap<>();
-
-        if (dataCategory.equalsIgnoreCase("infraDetails")) {
-            for (TestExeDto t : testcaseList) {
-                if (t.getMachine() != null && (!machineSet.contains(t.getMachine()))) {
-                    machine.append(t.getMachine()).append(", ");
-                    machineSet.add(t.getMachine());
-
-                }
-
-            }
-
-            if (!(machine.toString().equals("null, ") || machine.length() == 0)) {
-                machine = new StringBuilder(machine.substring(0, machine.length() - 2));
-                data.put("Machine", machine.toString());
-            } else if (getSuite.getMachine() != null) {
-                data.put("Machine", getSuite.getMachine());
-            } else {
-                data.put("Machine", null);
-            }
-
-            if (!(os == null || os.length() == 0)) {
-                data.put("OS", os);
-            } else {
-                data.put("OS", null);
-            }
-
-            if (!(framework_name == null || framework_name.length() == 0) && !(framework_version == null || framework_version.length() == 0)) {
-                data.put("Framework", framework_name + " " + framework_version);
-            }
-
-
-        }
-
-        if (dataCategory.equalsIgnoreCase("userDetails")) {
-
-            for (TestExeDto t : testcaseList) {
-                if (t.getToken_user() != null && (!tokenUserSet.contains(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]))) {
-                    token_user.append(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]).append(",");
-                    tokenUserSet.add(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]);
-
-                }
-                if (t.getBase_user() != null && (!baseUserSet.contains(t.getBase_user()))) {
-                    base_user.append(t.getBase_user()).append(",");
-                    baseUserSet.add(t.getBase_user());
-
-                }
-
-            }
-
-            if (!(base_user.toString().equals("null,") || base_user.length() == 0)) {
-                base_user = new StringBuilder(base_user.substring(0, base_user.length() - 1));
-                data.put("Machine Base User", base_user.toString());
-            } else if (getSuite.getUser() != null) {
-                data.put("Machine base user", getSuite.getUser());
-            } else {
-                data.put("Machine Base User", null);
-            }
-
-            if (!(token_user.toString().equals("null,") || token_user.length() == 0)) {
-                token_user = new StringBuilder(token_user.substring(0, token_user.length() - 1));
-                data.put("Jewel Token User", token_user.toString());
-            } else {
-                data.put("Jewel Token User", null);
-            }
-        }
-        return data;
-    }
-
-    public static Object createExecutionDetailsHeaders(List<TestExeDto> testcaseList) {
-        StringBuilder run_type = new StringBuilder();
-        StringBuilder run_mode = new StringBuilder();
-        Set<String> run_typeSet = new HashSet<>();
-        Set<String> run_modeSet = new HashSet<>();
-        Map<String, Object> data = new HashMap<String, Object>();
-        for (TestExeDto t : testcaseList) {
-            if (!run_modeSet.contains(t.getRun_mode())) {
-                run_mode.append(t.getRun_mode()).append(", ");
-                run_modeSet.add(t.getRun_mode());
-            }
-            if (!run_typeSet.contains(t.getRun_type().toUpperCase(Locale.ROOT))) {
-                if (t.getRun_type() != null) {
-                    run_type.append(t.getRun_type().toUpperCase(Locale.ROOT)).append(", ");
-                    run_typeSet.add(t.getRun_type().toUpperCase(Locale.ROOT));
-                }
-            }
-
-
-        }
-        if (!(run_mode.toString().equals("null, ") || run_mode.length() == 0)) {
-            run_mode = new StringBuilder(run_mode.substring(0, run_mode.length() - 2));
-            data.put("Run Mode", run_mode.toString());
-        } else {
-            data.put("Run Mode", null);
-        }
-
-        if (!(run_type.toString().equals("null, ") || run_type.length() == 0)) {
-            run_type = new StringBuilder(run_type.substring(0, run_type.length() - 2));
-            // System.out.println(user.getClass().getSimpleName());
-            data.put("Run Type", run_type.toString());
-        } else {
-            data.put("Run Type", null);
-        }
-
-        if (testcaseList!=null && !testcaseList.isEmpty() && testcaseList.get(0).getJob_name() != null) {
-            data.put("Job Name", testcaseList.get(0).getJob_name());
-        } else {
-            data.put("Job Name", null);
-        }
-
-        return data;
-
-    }
-
-    public static Object createExecutionInfoHeaders(SuiteExeDto getSuite) {
-        Map<String, Object> data = new HashMap<String, Object>();
-        data.put("Status", getSuite.getStatus());
-        data.put("Project Name", StringUtils.capitalize(getSuite.getProject_name()));
-        data.put("Env", StringUtils.capitalize(getSuite.getEnv()));
-        data.put("Report Name", StringUtils.capitalize(getSuite.getReport_name()));
-
-        return data;
-
-    }
-
     public static List<String> headersDataRefactor(List<String> list) {
         List<String> finalList = new ArrayList<>();
         finalList.addAll(list);
@@ -1157,56 +1025,6 @@ public class ReportUtils {
         }
 
         return finalList;
-    }
-
-    public static Object createBuildHeaders(SuiteExeDto getSuite) {
-        HashMap<String, Object> data = new HashMap<>();
-        data.put("Build ID", getSuite.getBuild_id());
-        data.put("Sprint Name", getSuite.getSprint_name());
-
-        return data;
-    }
-
-    public static Object createTimeReportHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite) {
-        Map<String, Object> timeSubType = new HashMap<>();
-        Map<String, Object> data = new HashMap<>();
-        timeSubType.put("Clock Start Time", getSuite.getS_start_time());
-        if (getSuite.getS_end_time() != 0) {
-
-            timeSubType.put("Clock End Time", getSuite.getS_end_time());
-            timeSubType.put("Total Duration", getDuration(getSuite.getS_start_time(), getSuite.getS_end_time()));
-        } else {
-            timeSubType.put("Clock End Time", null);
-            timeSubType.put("Total Duration", null);
-        }
-
-        data.put("Clock Time", timeSubType);
-        timeSubType = new HashMap<>();
-
-        long minStartTime = testcaseList.get(0).getStart_time();
-        long maxEndTime = testcaseList.get(0).getEnd_time();
-
-        for (TestExeDto test : testcaseList) {
-            if (test.getStart_time() < minStartTime) {
-                minStartTime = test.getStart_time();
-            }
-            if (test.getEnd_time() > maxEndTime) {
-                maxEndTime = test.getEnd_time();
-            }
-        }
-
-        timeSubType.put("Automation Start Time", minStartTime);
-        if (maxEndTime != 0) {
-
-            timeSubType.put("Automation End Time", maxEndTime);
-            timeSubType.put("Total Duration", getDuration(minStartTime, maxEndTime));
-        } else {
-            timeSubType.put("Automation End Time", null);
-            timeSubType.put("Total Duration", null);
-        }
-        data.put("Automation Time", timeSubType);
-
-        return data;
     }
 
     public static String getDuration(long s_start_time, long s_end_time) {
@@ -1263,4 +1081,748 @@ public class ReportUtils {
 
         return finalList;
     }
+
+    public static Map<String, List<SuiteExeDto>> getSuiteNames(String suiteName, List<Long> pid, List<String> projects, long starttime,
+                                                     long endtime,
+                                                     List<String> envs) {
+        Query query = new Query();
+        List<Criteria> criteria = new ArrayList<Criteria>();
+        criteria.add(Criteria.where("report_name").is(suiteName));
+        criteria.add(Criteria.where("p_id").in(pid));
+        criteria.add(Criteria.where("project_name").in(projects));
+        criteria.add(Criteria.where("s_start_time").gte(starttime));
+        criteria.add(Criteria.where("s_end_time").lte(endtime));
+        criteria.add(Criteria.where("env").in(envs));
+        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+        Map<String, List<SuiteExeDto>> map = new HashMap<>();
+        List<SuiteExeDto> suiteExeList = mongoOperations.find(query, SuiteExeDto.class);
+        for (SuiteExeDto suiteExe : suiteExeList) {
+            String key = suiteExe.getProject_name() + ":" + suiteExe.getReport_name() + ":" + suiteExe.getEnv();
+            List<SuiteExeDto> data = map.getOrDefault(key, null);
+            if (data == null) {
+                List<SuiteExeDto> newlist = new ArrayList<>();
+                newlist.add(suiteExe);
+                map.put(key, newlist);
+            } else {
+                data.add(suiteExe);
+                map.put(key, data);
+            }
+        }
+        return map;
+    }
+
+    public static Map<String, Object> last5SuiteRuns(List<SuiteExeDto> getAllSuites) {
+        List<SuiteExeDto> suiteExes = new ArrayList<>();
+        suiteExes.addAll(getAllSuites);
+        suiteExes = suiteExes.subList(0, suiteExes.size() >= 5 ? 5 : suiteExes.size());
+        if (suiteExes.size() > 0) {
+            List<Long> passCount = new ArrayList<>();
+            List<Long> failCount = new ArrayList<>();
+            List<Long> warnCount = new ArrayList<>();
+            List<Long> infoCount = new ArrayList<>();
+            List<Long> errCount = new ArrayList<>();
+            List<Long> exeCount = new ArrayList<>();
+            List<Long> labels = new ArrayList<>();
+            List<String> ids = new ArrayList<>();
+            long suiteFailCount = 0L;
+            for (SuiteExeDto suiteExe : suiteExes) {
+                if (suiteExe.getStatus().toUpperCase().equals("FAIL")) {
+                    suiteFailCount++;
+                }
+                Query query1 = new Query(Criteria.where("s_run_id").is(suiteExe.getS_run_id()));
+                List<TestExeDto> testExeList = mongoOperations.find(query1, TestExeDto.class);
+                Map<String, Long> statusMap = new HashMap<>();
+                for (StatusColor statusColor : StatusColor.values()) {
+                    statusMap.put(statusColor.toString(), 0L);
+                }
+                long totalCount = 0L;
+                for (TestExeDto testExe : testExeList) {
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.PASS.toString())) {
+                        long value = statusMap.get(StatusColor.PASS.toString()) + 1;
+                        statusMap.put(StatusColor.PASS.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.FAIL.toString())) {
+                        long value = statusMap.get(StatusColor.FAIL.toString()) + 1;
+                        statusMap.put(StatusColor.FAIL.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.EXE.toString())) {
+                        long value = statusMap.get(StatusColor.EXE.toString()) + 1;
+                        statusMap.put(StatusColor.EXE.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.ERR.toString())) {
+                        long value = statusMap.get(StatusColor.ERR.toString()) + 1;
+                        statusMap.put(StatusColor.ERR.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.INFO.toString())) {
+                        long value = statusMap.get(StatusColor.INFO.toString()) + 1;
+                        statusMap.put(StatusColor.INFO.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.WARN.toString())) {
+                        long value = statusMap.get(StatusColor.WARN.toString()) + 1;
+                        statusMap.put(StatusColor.WARN.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+
+                }
+
+                for (StatusColor statusColor : StatusColor.values()) {
+                    switch (statusColor.toString()) {
+                        case "PASS":
+                            passCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "FAIL":
+                            failCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "WARN":
+                            warnCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "INFO":
+                            infoCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "ERR":
+                            errCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "EXE":
+                            exeCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                    }
+
+                }
+                labels.add(suiteExe.getS_start_time());
+                ids.add(suiteExe.getS_run_id());
+            }
+
+            Map<String, Object> suiteBarGraph = new HashMap<>();
+            suiteBarGraph.put("labels", labels);
+            List<Map<String, Object>> datasets = new ArrayList<>();
+
+            for (StatusColor statusColor : StatusColor.values()) {
+                Map<String, Object> datasetmap = new HashMap<>();
+                datasetmap.put("label", statusColor.toString());
+                switch (statusColor.toString().toUpperCase()) {
+                    case "PASS":
+                        datasetmap.put("data", passCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "FAIL":
+                        datasetmap.put("data", failCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "WARN":
+                        datasetmap.put("data", warnCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "INFO":
+                        datasetmap.put("data", infoCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "ERR":
+                        datasetmap.put("data", errCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "EXE":
+                        datasetmap.put("data", exeCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                }
+                datasets.add(datasetmap);
+            }
+            suiteBarGraph.put("ids", ids);
+            suiteBarGraph.put("click", true);
+            suiteBarGraph.put("datasets", datasets);
+            suiteBarGraph.put("size", suiteFailCount);
+            return suiteBarGraph;
+        } else {
+            return null;
+        }
+    }
+
+    public static Map<String, Long> culprit(List<SuiteExeDto> getAllSuites) {
+        if (getAllSuites.size() == 0) {
+            return null;
+        }
+        List<String> srunIds = getAllSuites.stream().map(x -> x.getS_run_id()).collect(Collectors.toList());
+
+        Query query = new Query(Criteria.where("s_run_id").in(srunIds));
+        List<TestExeDto> testExeList = mongoOperations.find(query, TestExeDto.class);
+        Map<String, Long> totalCountMap = new HashMap<>();
+        Map<String, Long> failCountMap = new HashMap<>();
+        Map<String, Long> finalMap = new HashMap<>();
+        String testCaseName = null;
+        long percentage = 0L;
+        long averagePercentage = 0L;
+
+        for (TestExeDto testExe : testExeList) {
+            if (testExe.getStatus().toUpperCase().equals("FAIL") || testExe.getStatus().toUpperCase().equals("EXE")) {
+                failCountMap.put(testExe.getName(), failCountMap.getOrDefault(testExe.getName(), 0L) + 1);
+            }
+            totalCountMap.put(testExe.getName(), totalCountMap.getOrDefault(testExe.getName(), 0L) + 1);
+        }
+        if (failCountMap.size() == 0) {
+            return null;
+        }
+
+        for (String name : totalCountMap.keySet()) {
+            long failCount = failCountMap.getOrDefault(name, 0L);
+            long totalCount = totalCountMap.getOrDefault(name, 0L);
+            long failedPercentage = (failCount * 100) / totalCount;
+            if (failedPercentage > percentage) {
+                testCaseName = name;
+                percentage = failedPercentage;
+            }
+            if (failedPercentage > 50) {
+                finalMap.put(name, failedPercentage);
+                averagePercentage = averagePercentage + percentage;
+            }
+        }
+
+        if (finalMap.size() == 0 && percentage > 0) {
+            finalMap.put(testCaseName, percentage);
+            averagePercentage = averagePercentage + percentage;
+        }
+        if (finalMap.size() > 0) {
+            averagePercentage = averagePercentage / finalMap.size();
+            finalMap.put("average", Long.valueOf((String.valueOf(averagePercentage))));
+            return finalMap;
+        }
+        return null;
+    }
+
+    public static double getQAScore(List<SuiteExeDto> getAllSuites) {
+        List<String> sRunIdsList = new ArrayList<>();
+        double suiteErrCount = 0;
+        double testcaseErrCount = 0;
+        double falsePositive = 0;
+
+        for (SuiteExeDto suiteExe : getAllSuites) {
+
+            if (suiteExe.getS_run_id().equalsIgnoreCase("TEST-PROJECT_Beta_ce3192d6-9634-424c-97bc-d08caf344401")) {
+                System.out.println("truuuuuu");
+            }
+            sRunIdsList.add(suiteExe.getS_run_id());
+            if (suiteExe.getStatus().equalsIgnoreCase("ERR")) {
+                suiteErrCount++;
+            }
+            if (suiteExe.getClassificationDetails() != null
+                    && suiteExe.getClassificationDetails().getClassification() != null
+                    && suiteExe.getClassificationDetails().isChildFalsePostiveStatus()) {
+                falsePositive++;
+            }
+        }
+
+        Query errTestCasesCountQuery = new Query(
+                Criteria.where("status").in("ERR").and("s_run_id").in(sRunIdsList));
+        Query testCaseCountQuery = new Query(Criteria.where("s_run_id").in(sRunIdsList));
+
+        Query falsePositiveCountQuery = new Query(
+                Criteria.where("classificationDetails.childFalsePostiveStatus").is(true).and("s_run_id")
+                        .in(sRunIdsList));
+
+        double totalTestCaseCount = mongoOperations.count(testCaseCountQuery, TestExeDto.class);
+        double errTestCaseCount = mongoOperations.count(errTestCasesCountQuery, TestExeDto.class);
+
+        double falsePositiveTestCount = mongoOperations.count(falsePositiveCountQuery, TestExeDto.class);
+
+        double finalSuiteScore = (((999 * 0.5) * (getAllSuites.size() - suiteErrCount)) / getAllSuites.size());
+        double finalTestcaseScore = ((((999 * 0.5) * (totalTestCaseCount - errTestCaseCount)) / totalTestCaseCount));
+
+        if (falsePositive != 0.0) {
+            double falsePercentage = (getAllSuites.size() * falsePositive) / 100;
+            finalSuiteScore = finalSuiteScore - (399.6 * falsePercentage) / 100;
+        }
+        if (falsePositiveTestCount != 0.0) {
+            double falsePercentage = (totalTestCaseCount * falsePositiveTestCount) / 100;
+            finalTestcaseScore = finalTestcaseScore - (399.6 * falsePercentage) / 100;
+        }
+
+        return Math.round(finalSuiteScore + finalTestcaseScore);
+    }
+
+    public static String convertLongToTime(double seconds) {
+        String res = "";
+        DecimalFormat df = new DecimalFormat("#");
+        if (seconds < 60) {
+            res = seconds + " sec(s)";
+        } else if (seconds >= 60 && seconds < 3600) {
+            String ans = df.format(Math.floor(seconds / 60)) + "min";
+
+            res = ans;
+        } else if (seconds >= 60 && seconds < 86400) {
+            String ans = df.format(Math.floor(seconds / 3600)) + "hr ";
+            if (Math.floor((seconds % 3600) / 60) != 0) {
+                ans = ans + df.format(Math.floor((seconds % 3600) / 60)) + "m";
+            }
+
+            res = ans;
+        } else {
+            String ans = df.format(Math.floor(seconds / 86400)) + "d ";
+            if (Math.floor((seconds % 86400) / 3600) != 0) {
+                ans = ans + df.format(Math.floor((seconds % 86400) / 3600)) + "hr";
+            }
+
+            res = ans;
+        }
+
+        return res;
+    }
+
+    public static String getFailingSince(List<SuiteExeDto> suites, double brokenIndex) {
+        if (brokenIndex == 0) {
+            return "No Issues";
+        } else if (brokenIndex == 1) {
+            return "Never Fixed";
+        } else {
+            int count = 0;
+            for (SuiteExeDto suite : suites) {
+                if (!suite.getStatus().equalsIgnoreCase("FAIL")) {
+                    break;
+                }
+                count++;
+
+            }
+            if (count == 0) {
+                return "No Issues";
+            }
+            return "Last " + count + " Runs";
+        }
+    }
+
+    public static Long getLastPass(List<SuiteExeDto> suites) {
+        for (SuiteExeDto suite : suites) {
+            if (suite.getStatus().equalsIgnoreCase("PASS")) {
+                return suite.getS_start_time();
+            }
+
+        }
+        return 0L;
+    }
+
+    public static String lastRunStatus(List<SuiteExeDto> suites) {
+        return suites.get(0).getStatus();
+    }
+
+    public static Map<String, Long> lastStatusDetails(List<SuiteExeDto> suites) {
+        String s_run_id = suites.get(0).getS_run_id();
+        Query query = new Query(Criteria.where("s_run_id").is(s_run_id));
+        List<TestExeDto> TestcaseDetails = mongoOperations.find(query, TestExeDto.class);
+        Map<String, Long> statusMap = new HashMap<>();
+        for (StatusColor statusColor : StatusColor.values()) {
+            statusMap.put(statusColor.toString(), 0L);
+        }
+        long totalCount = 0;
+        for (TestExeDto testExe : TestcaseDetails) {
+            if (testExe.getStatus().toUpperCase().equals(StatusColor.PASS.toString())) {
+                long value = statusMap.get(StatusColor.PASS.toString()) + 1;
+                statusMap.put(StatusColor.PASS.toString(), value);
+                totalCount++;
+                continue;
+            }
+            if (testExe.getStatus().toUpperCase().equals(StatusColor.FAIL.toString())) {
+                long value = statusMap.get(StatusColor.FAIL.toString()) + 1;
+                statusMap.put(StatusColor.FAIL.toString(), value);
+                totalCount++;
+                continue;
+            }
+            if (testExe.getStatus().toUpperCase().equals(StatusColor.EXE.toString())) {
+                long value = statusMap.get(StatusColor.EXE.toString()) + 1;
+                statusMap.put(StatusColor.EXE.toString(), value);
+                totalCount++;
+                continue;
+            }
+            if (testExe.getStatus().toUpperCase().equals(StatusColor.ERR.toString())) {
+                long value = statusMap.get(StatusColor.ERR.toString()) + 1;
+                statusMap.put(StatusColor.ERR.toString(), value);
+                totalCount++;
+                continue;
+            }
+            if (testExe.getStatus().toUpperCase().equals(StatusColor.INFO.toString())) {
+                long value = statusMap.get(StatusColor.INFO.toString()) + 1;
+                statusMap.put(StatusColor.INFO.toString(), value);
+                totalCount++;
+                continue;
+            }
+            if (testExe.getStatus().toUpperCase().equals(StatusColor.WARN.toString())) {
+                long value = statusMap.get(StatusColor.WARN.toString()) + 1;
+                statusMap.put(StatusColor.WARN.toString(), value);
+                totalCount++;
+                continue;
+            }
+        }
+        return statusMap;
+    }
+
+    public static Object createExecutionHeadersDataWithVarinceAndFalsePositive(SuiteExeDto getSuite, Map<String, Object> iconMap) {
+
+        Map<String, Object> result = new HashMap<String, Object>();
+        List<Object> mainData = new ArrayList<Object>();
+        List<String> headers = new ArrayList<String>();
+
+        Collections.addAll(headers, "Status", "Project Name", "Env", "Report Name", "Start Time", "End Time", "Duration");
+        Map<String, Object> data = new HashMap<String, Object>();
+        Map<String, Object> varianceSubHeaders = new HashMap<>();
+        Map<String, Object> statusSubType = new HashMap<>();
+        statusSubType.put("subType", "falseVariance");
+        data.put("Project Name", createCustomObject(StringUtils.capitalize(getSuite.getProject_name()), "text", getSuite.getProject_name(), "center"));
+        data.put("Env", createCustomObject(StringUtils.capitalize(getSuite.getEnv()), "text", getSuite.getEnv(), "center"));
+        data.put("Report Name", createCustomObject(StringUtils.capitalize(getSuite.getReport_name()), "text", getSuite.getReport_name(), "center"));
+        Map<String, Object> timereport = new HashMap<>();
+        timereport.put("subType", "datetime");
+        data.put("Start Time", createCustomObject(getSuite.getS_start_time(), "date", getSuite.getS_start_time(), "center", timereport));
+        if (getSuite.getS_end_time() != 0) {
+
+            data.put("End Time", createCustomObject(getSuite.getS_end_time(), "date", getSuite.getS_end_time(), "center", timereport));
+            data.put("Duration", createCustomObject(getDuration(getSuite.getS_start_time(), getSuite.getS_end_time()), "text", ((float) (getSuite.getS_end_time() - getSuite.getS_start_time()) / 1000), "center"));
+        } else {
+            data.put("End Time", createCustomObject("-", "text", getSuite.getS_end_time(), "center"));
+            data.put("Duration", createCustomObject("-", "text", 0, "center"));
+        }
+        if (iconMap != null && iconMap.size() > 0) {
+            data.put("ICON", iconMap);
+            data.put("ISCLICKABLE", createCustomObject(false, "text", false, "left"));
+        }
+        mainData.add(data);
+        result.put("headers", headers);
+        result.put("data", mainData);
+        return result;
+    }
+
+    public static Object createInfraHeadersData(SuiteExeDto getSuite) {
+        Map<String, Object> result = new HashMap<>();
+        List<String> headers = new ArrayList<>();
+        List<Object> mainData = new ArrayList<>();
+        String user = "";
+        String machine = "";
+        String run_type = "";
+        String run_mode = "";
+        Set<String> userSet = new HashSet<>();
+        Set<String> machineSet = new HashSet<>();
+        Set<String> run_typeSet = new HashSet<>();
+        Set<String> run_modeSet = new HashSet<>();
+        Collections.addAll(headers, "Executed By", "Executed On", "Run Type", "Run Mode");
+        Map<String, Object> data = new HashMap<String, Object>();
+        Query query = new Query(Criteria.where("s_run_id").is(getSuite.getS_run_id()));
+        List<TestExeDto> testcaseList = mongoOperations.find(query, TestExeDto.class);
+        for (TestExeDto t : testcaseList) {
+            if (!userSet.contains(t.getInvoke_user())) {
+                if (t.getInvoke_user() != null) {
+                    user = user + t.getInvoke_user() + ",";
+                    userSet.add(t.getInvoke_user());
+                }
+            }
+            if (!run_modeSet.contains(t.getRun_mode())) {
+                if (t.getRun_mode() != null) {
+                    run_mode = run_mode + t.getRun_mode() + ",";
+                    run_modeSet.add(t.getRun_mode());
+                }
+            }
+            if (!run_typeSet.contains(t.getRun_type().toUpperCase(Locale.ROOT))) {
+                if (t.getRun_type() != null) {
+                    run_type = run_type + t.getRun_type() + ",";
+                    run_typeSet.add(t.getRun_type().toUpperCase(Locale.ROOT));
+                }
+            }
+            if (!machineSet.contains(t.getMachine())) {
+                if (t.getMachine() != null) {
+                    machine = machine + t.getMachine() + ",";
+                    machineSet.add(t.getMachine());
+                }
+            }
+        }
+        if (!(user.equals("null,") || user.length() == 0)) {
+            user = user.substring(0, user.length() - 1);
+            data.put("Executed By", createCustomObject(user, "text", user, "left"));
+        } else {
+            data.put("Executed By", createCustomObject("-", "text", "-", "left"));
+        }
+        if (!(machine.equals("null,") || machine.length() == 0)) {
+            machine = machine.substring(0, machine.length() - 1);
+            data.put("Executed On", createCustomObject(machine, "text", machine, "left"));
+        } else {
+            data.put("Executed On", createCustomObject("-", "text", "-", "left"));
+        }
+        if (!(run_type.equals("null,") || run_type.length() == 0)) {
+            run_type = run_type.substring(0, run_type.length() - 1);
+            data.put("Run Type", createCustomObject(run_type, "text", run_type, "left"));
+        } else {
+            data.put("Run Type", createCustomObject("-", "text", "-", "left"));
+        }
+        if (!(run_mode.equals("null,") || run_mode.length() == 0)) {
+            run_mode = run_mode.substring(0, run_mode.length() - 1);
+            data.put("Run Mode", createCustomObject(run_mode, "text", run_mode, "left"));
+        } else {
+            data.put("Run Mode", createCustomObject("-", "text", "-", "left"));
+        }
+        mainData.add(data);
+        result.put("headers", headers);
+        result.put("data", mainData);
+        return result;
+    }
+
+    public static Map<String, Object> Last5RunsStackedBarChartBySuiteExe(SuiteExeDto getSuite) {
+        Query barChartQuery = new Query(Criteria.where("report_name").is(getSuite.getReport_name())
+                .andOperator(Criteria.where("env").is(getSuite.getEnv())));
+        Pageable barChartPageable = PageRequest.of(0, 5);
+        Sort.Order barChartOrder = new Sort.Order(Sort.Direction.DESC, "s_start_time");
+        barChartQuery.with(barChartPageable);
+        barChartQuery.with(Sort.by(barChartOrder));
+        List<SuiteExeDto> suiteExes = mongoOperations.find(barChartQuery, SuiteExeDto.class);
+        if (suiteExes.size() > 0) {
+            List<Long> passCount = new ArrayList<>();
+            List<Long> failCount = new ArrayList<>();
+            List<Long> warnCount = new ArrayList<>();
+            List<Long> infoCount = new ArrayList<>();
+            List<Long> errCount = new ArrayList<>();
+            List<Long> exeCount = new ArrayList<>();
+            List<Long> labels = new ArrayList<>();
+            for (SuiteExeDto suiteExe : suiteExes) {
+                Query varianceQuery = new Query(Criteria.where("varianceId").in(suiteExe.getVarianceIds())
+                        .and("varianceStatus").is("ACTIVE").and("endDate").gt(new Date().getTime()));
+                List<VarianceClassification> varianceClassificationList = mongoOperations.find(varianceQuery,
+                        VarianceClassification.class);
+                Map<Long, VarianceClassification> variannceList = new HashMap<>();
+                List<Long> varinaceIds = new ArrayList<>();
+                for (VarianceClassification varianceClassification : varianceClassificationList) {
+                    varinaceIds.add(varianceClassification.getVarianceId());
+                    variannceList.put(varianceClassification.getVarianceId(), varianceClassification);
+                }
+                Query query1 = new Query(Criteria.where("s_run_id").is(suiteExe.getS_run_id()));
+                List<TestExeDto> testExeList = mongoOperations.find(query1, TestExeDto.class);
+                Map<String, Long> statusMap = new HashMap<>();
+                for (StatusColor statusColor : StatusColor.values()) {
+                    statusMap.put(statusColor.toString(), 0L);
+                }
+                long totalCount = 0L;
+                for (TestExeDto testExe : testExeList) {
+                    if (testExe.getVarianceId() != null
+                            || (testExe.getStepVarianceIds() != null && testExe.getStepVarianceIds().size() > 0)
+                            || testExe.getClassificationDetails() != null) {
+                        if (testExe.getVarianceId() != null
+                                || (testExe.getStepVarianceIds() != null && testExe.getStepVarianceIds().size() > 0)) {
+                            VarianceClassification varianceClassification = variannceList
+                                    .getOrDefault(testExe.getVarianceId(), null);
+                            if (varianceClassification != null) {
+                                testExe.setStatus("PASS");
+                            }
+                            if (checkoneListContainsElementOfAnotherList(varinaceIds,
+                                    testExe.getStepVarianceIds())) {
+                                testExe.setStatus(checkStatusOfTestCaseByStepsIfVarianceIsThere(
+                                        testExe.getTc_run_id(), variannceList));
+                            }
+                        }
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.PASS.toString())) {
+                        long value = statusMap.get(StatusColor.PASS.toString()) + 1;
+                        statusMap.put(StatusColor.PASS.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.FAIL.toString())) {
+                        long value = statusMap.get(StatusColor.FAIL.toString()) + 1;
+                        statusMap.put(StatusColor.FAIL.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.EXE.toString())) {
+                        long value = statusMap.get(StatusColor.EXE.toString()) + 1;
+                        statusMap.put(StatusColor.EXE.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.ERR.toString())) {
+                        long value = statusMap.get(StatusColor.ERR.toString()) + 1;
+                        statusMap.put(StatusColor.ERR.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.INFO.toString())) {
+                        long value = statusMap.get(StatusColor.INFO.toString()) + 1;
+                        statusMap.put(StatusColor.INFO.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (testExe.getStatus().toUpperCase().equals(StatusColor.WARN.toString())) {
+                        long value = statusMap.get(StatusColor.WARN.toString()) + 1;
+                        statusMap.put(StatusColor.WARN.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+
+                }
+
+                for (StatusColor statusColor : StatusColor.values()) {
+                    switch (statusColor.toString()) {
+                        case "PASS":
+                            passCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "FAIL":
+                            failCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "WARN":
+                            warnCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "INFO":
+                            infoCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "ERR":
+                            errCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                        case "EXE":
+                            exeCount.add(statusMap.get(statusColor.toString()));
+                            break;
+                    }
+
+                }
+                labels.add(suiteExe.getS_start_time());
+            }
+
+            Map<String, Object> suiteBarGraph = new HashMap<>();
+            suiteBarGraph.put("labels", labels);
+            List<Map<String, Object>> datasets = new ArrayList<>();
+
+            for (StatusColor statusColor : StatusColor.values()) {
+                Map<String, Object> datasetmap = new HashMap<>();
+                datasetmap.put("label", statusColor.toString());
+                switch (statusColor.toString().toUpperCase()) {
+                    case "PASS":
+                        datasetmap.put("data", passCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "FAIL":
+                        datasetmap.put("data", failCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "WARN":
+                        datasetmap.put("data", warnCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "INFO":
+                        datasetmap.put("data", infoCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "ERR":
+                        datasetmap.put("data", errCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "EXE":
+                        datasetmap.put("data", exeCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                }
+                datasets.add(datasetmap);
+            }
+            suiteBarGraph.put("datasets", datasets);
+            Map<String, Object> stackedBarChartType = new HashMap<>();
+            stackedBarChartType.put("subType", "stacked_bar_chart");
+            stackedBarChartType.put("heading", "Last 5 Suite Runs");
+            return createCustomObject(suiteBarGraph, "chart", suiteExes.size(), "center",
+                    stackedBarChartType);
+
+        }
+        return null;
+    }
+
+    public static Map<String, Object> testCaseInfoDoughnutChart(List<String> statues) {
+        Map<String, Long> pieData = new HashMap<>();
+        for (String status : statues) {
+            pieData.put(status.toUpperCase(),
+                    pieData.getOrDefault(status.toUpperCase(), 0L) + 1);
+
+        }
+        if (pieData != null && !pieData.keySet().isEmpty()) {
+            List<String> labels = new ArrayList<>();
+            labels.addAll(pieData.keySet());
+            for (String key : labels) {
+                pieData.replace(key, ((Number) pieData.get(key)).longValue());
+            }
+            long totalcount = statues.size();
+            Map<String, Object> doughnutSubType = new HashMap<>();
+            doughnutSubType.put("subType", "doughnut_chart");
+            doughnutSubType.put("heading", "Total Testcase(s)");
+            return createCustomObject(createDoughnutChart(pieData),
+                    "chart", totalcount, "center", doughnutSubType);
+        }
+        return null;
+    }
+
+    public static Map<String, Object> categoryStackedBarChartByS_run_id(Map<String, Long> data, Set<String> category) {
+        List<Long> passCount = new ArrayList<>();
+        List<Long> failCount = new ArrayList<>();
+        List<Long> warnCount = new ArrayList<>();
+        List<Long> infoCount = new ArrayList<>();
+        List<Long> errCount = new ArrayList<>();
+        List<Long> exeCount = new ArrayList<>();
+        long maxCount = 0;
+        if (category.size() > 1) {
+            for (String category1 : category) {
+                Map<String, Long> barcount = new HashMap<>();
+                for (StatusColor statusColor : StatusColor.values()) {
+                    barcount.put(statusColor.toString(), 0L);
+                    barcount.put(statusColor.toString(),
+                            data.getOrDefault(category1.toUpperCase() + "_" + statusColor.toString(), 0L));
+                }
+                passCount.add(barcount.get(StatusColor.PASS.toString()));
+                failCount.add(barcount.get(StatusColor.FAIL.toString()));
+                warnCount.add(barcount.get(StatusColor.WARN.toString()));
+                infoCount.add(barcount.get(StatusColor.INFO.toString()));
+                errCount.add(barcount.get(StatusColor.ERR.toString()));
+                exeCount.add(barcount.get(StatusColor.EXE.toString()));
+            }
+            Map<String, Object> categoryBarGraph = new HashMap<>();
+
+            categoryBarGraph.put("labels", category);
+            List<Map<String, Object>> datasets = new ArrayList<>();
+
+            for (StatusColor statusColor : StatusColor.values()) {
+                Map<String, Object> datasetmap = new HashMap<>();
+                datasetmap.put("label", statusColor.toString());
+                switch (statusColor.toString().toUpperCase()) {
+                    case "PASS":
+                        datasetmap.put("data", passCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "FAIL":
+                        datasetmap.put("data", failCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "WARN":
+                        datasetmap.put("data", warnCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "INFO":
+                        datasetmap.put("data", infoCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "ERR":
+                        datasetmap.put("data", errCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                    case "EXE":
+                        datasetmap.put("data", exeCount);
+                        datasetmap.put("backgroundColor", statusColor.color);
+                        break;
+                }
+                datasets.add(datasetmap);
+            }
+            categoryBarGraph.put("datasets", datasets);
+            Map<String, Object> stackedBarChartType = new HashMap<>();
+            stackedBarChartType.put("subType", "stacked_bar_chart");
+            stackedBarChartType.put("heading", "Category Wise Status");
+            return createCustomObject(categoryBarGraph,
+                    "chart", category.size(), "center", stackedBarChartType);
+        } else {
+            return null;
+        }
+    }
+
 }
