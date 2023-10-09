@@ -11,6 +11,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -91,5 +92,11 @@ public class TestExeDto {
 
     @JsonIgnore
     private Long varianceId;
+
+    @JsonIgnore
+    private List<Long> stepVarianceIds=new ArrayList<>();
+
+    @JsonIgnore
+    private Long testcase_id;
 
 }

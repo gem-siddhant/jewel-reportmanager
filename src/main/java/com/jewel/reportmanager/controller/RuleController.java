@@ -35,7 +35,7 @@ public class RuleController {
                                                   @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) throws ParseException {
         try {
             RuleApi ruleApi = modelMapper.map(payload, RuleApi.class);
-            return ResponseEntity.ok(ruleService.getRuleReport(ruleApi, request, pageNo, sort, sortedColumn));
+            return ResponseEntity.ok(ruleService.getRuleReport(ruleApi, pageNo, sort, sortedColumn));
         } catch (CustomDataException ex) {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
         }
@@ -77,9 +77,9 @@ public class RuleController {
     }
 
     @GetMapping(path = "/v1/tickets")
-    public ResponseEntity<Response> suiteTickets(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id, HttpServletRequest request) {
+    public ResponseEntity<Response> suiteTickets(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id) {
         try {
-            return ResponseEntity.ok(ruleService.getTickets(s_run_id, request));
+            return ResponseEntity.ok(ruleService.getTickets(s_run_id));
         } catch (CustomDataException ex) {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType(), ex.getSubOperationType()));
         }

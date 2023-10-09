@@ -1,6 +1,5 @@
 package com.jewel.reportmanager.utils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.entity.RuleApi;
 import com.jewel.reportmanager.entity.VarianceClassification;
@@ -25,7 +24,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import javax.servlet.http.HttpServletRequest;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -36,7 +34,6 @@ import static com.jewel.reportmanager.enums.OperationType.Failure;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
 import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.USER_DETAILS_NOT_FOUND;
-import static javax.accessibility.AccessibleState.ACTIVE;
 
 @Slf4j
 public class ReportUtils {
@@ -158,16 +155,6 @@ public class ReportUtils {
         return columns;
     }
 
-    public static ProjectDto getProjectByPidAndStatus(Long pid, String status) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
-        HttpEntity httpEntity = new HttpEntity(null, headers);
-        Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
-        uriVariables.put("status", status);
-        return (ProjectDto) RestClient.getApi(projectManagerUrl + "/v2/project/pid/status?pid={pid}&status={status}", httpEntity, Project.class, uriVariables).getBody();
-    }
-
     public static boolean validateRoleWithViewerAccess(UserDto user, ProjectDto project) {
         if (project == null) {
             return false;
@@ -258,7 +245,7 @@ public class ReportUtils {
         return columns;
 }
 
-    public static double brokenIndex(List<TestExeCommonDto> testExes) {
+    public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
 
         if (testExes.size() == 1) {
             if (testExes.get(0).getStatus().equalsIgnoreCase("FAIL")) {
@@ -303,7 +290,7 @@ public class ReportUtils {
         return res;
     }
 
-    public static double brokenIndex(List<SuiteExeDto> suites) {
+    public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
 
         if (suites.size() == 1) {
             if (suites.get(0).getStatus().equalsIgnoreCase("FAIL")) {
@@ -340,7 +327,6 @@ public class ReportUtils {
 
             }
         }
-        // System.out.println(count+""+getSuites.size());
         if (count == suites.size()) {
             return 1;
         }
@@ -348,7 +334,7 @@ public class ReportUtils {
         return res;
     }
 
-    public static String averageFixTime(List<TestExeCommonDto> testExes) {
+    public static String averageFixTimeForTestExeCommon(List<TestExeCommonDto> testExes) {
 
         TestExeCommonDto curr = null;
         TestExeCommonDto prev = null;
@@ -413,7 +399,7 @@ public class ReportUtils {
         return res;
     }
 
-    public static long averageFixTime(List<SuiteExeDto> suites) {
+    public static long averageFixTimeForSuiteExe(List<SuiteExeDto> suites) {
 
         SuiteExeDto curr = null;
         SuiteExeDto prev = null;
@@ -421,7 +407,7 @@ public class ReportUtils {
 
         for (SuiteExeDto suite : suites) {
 
-            if (curr == null && prev == null) {
+            if (curr == null) {
 
                 curr = suite;
             } else {
@@ -447,7 +433,7 @@ public class ReportUtils {
 
     }
 
-    public static long getDownTime(List<SuiteExeDto> suites) {
+    public static long getDownTimeForSuiteExe(List<SuiteExeDto> suites) {
         if (suites.get(0).getStatus().equalsIgnoreCase("PASS")) {
             return 0;
         } else {
@@ -477,11 +463,11 @@ public class ReportUtils {
     }
 
 
-    public static String lastRunStatus(List<TestExeCommonDto> testExes) {
+    public static String lastRunStatusForTestExeCommon(List<TestExeCommonDto> testExes) {
         return testExes.get(0).getStatus();
     }
 
-    public static String getFailingSince(List<TestExeCommonDto> testExes, double brokenIndex) {
+    public static String getFailingSinceForTestExeCommon(List<TestExeCommonDto> testExes, double brokenIndex) {
         if (brokenIndex == 0) {
             return "No Issues";
         } else if (brokenIndex == 1) {
@@ -502,7 +488,7 @@ public class ReportUtils {
         }
     }
 
-    public static Long getLastPass(List<TestExeCommonDto> testExes) {
+    public static Long getLastPassForTestExeCommon(List<TestExeCommonDto> testExes) {
         for (TestExeCommonDto testExe : testExes) {
             if (testExe.getStatus().equalsIgnoreCase("PASS")) {
                 return testExe.getStart_time();
@@ -512,7 +498,7 @@ public class ReportUtils {
         return 0L;
     }
 
-    public static String getDownTime(List<TestExeCommonDto> testExes) {
+    public static String getDownTimeForTestExeCommon(List<TestExeCommonDto> testExes) {
         if (testExes.get(0).getStatus().equalsIgnoreCase("PASS")) {
             return "No Issues";
         } else {
@@ -622,6 +608,72 @@ public class ReportUtils {
         return Math.round((999 - (999 * (0.35 * brokenIndex))) * 100.0) / 100.0;
     }
 
+    public static double getScore(double brokenIndex, long downTime, long averageFixTime, String env,
+                           List<SuiteExeDto> suiteExeList) {
+        double averageFixTimeScore = 25;
+        double downTimeScore = 15;
+        double averageFixTimeCount = 0;
+        double downTimeCount = 0;
+        double testCaseScore = 15;
+        double suiteScore = 10;
+        if (env.equalsIgnoreCase("prod")) {
+            averageFixTimeCount = Math.floor((Math.floor(averageFixTime / (double) 60)) / 30);
+            downTimeCount = Math.floor((Math.floor(downTime / (double) 60)) / 15);
+        } else if (env.equalsIgnoreCase("beta") || env.equalsIgnoreCase("uat") || env.equalsIgnoreCase("pre-prod")) {
+            averageFixTimeCount = Math.floor((Math.floor(averageFixTime / (double) 60)) / 180);
+            downTimeCount = Math.floor((Math.floor(downTime / (double) 60)) / 90);
+        } else {
+            averageFixTimeCount = Math.floor((Math.floor(averageFixTime / (double) 60)) / 1440);
+            downTimeCount = Math.floor((Math.floor(downTime / (double) 60)) / 1440);
+        }
+        averageFixTimeScore = averageFixTimeScore - averageFixTimeCount;
+        downTimeScore = downTimeScore - downTimeCount;
+        if (averageFixTimeScore < 0) {
+            averageFixTimeScore = 0;
+        }
+        if (downTimeScore < 0) {
+            downTimeScore = 0;
+        }
+        double count = 0;
+        List<String> sRunIdsList = new ArrayList<>();
+        for (SuiteExeDto suiteExe : suiteExeList) {
+            sRunIdsList.add(suiteExe.getS_run_id());
+            if (suiteExe.getStatus().equalsIgnoreCase("FAIL") || suiteExe.getStatus().equalsIgnoreCase("ERR")) {
+                count++;
+            }
+        }
+        Query failOrExeTestCasesCountQuery = new Query(
+                Criteria.where("status").in("ERR", "FAIL").and("s_run_id").in(sRunIdsList));
+        Query testCaseCountQuery = new Query(Criteria.where("s_run_id").in(sRunIdsList));
+        double totalTestCaseCount = mongoOperations.count(testCaseCountQuery, TestExeDto.class);
+        double failTestCaseCount = mongoOperations.count(failOrExeTestCasesCountQuery, TestExeDto.class);
+        if (totalTestCaseCount > 0) {
+            testCaseScore = testCaseScore - ((failTestCaseCount / totalTestCaseCount) * 15);
+        } else {
+            testCaseScore = 0;
+        }
+        if (testCaseScore < 0) {
+            testCaseScore = 0;
+        }
+
+        if (suiteExeList.size() > 0) {
+            suiteScore = suiteScore - ((count / suiteExeList.size()) * 10);
+        } else {
+            suiteScore = 0;
+        }
+        if (suiteScore < 0) {
+            suiteScore = 0;
+        }
+        brokenIndex = 1 - brokenIndex;
+
+        double brokenIndexWeight = Math.round(((999 * (0.35 * brokenIndex))) * 100) / 100;
+        double downTimeWeight = Math.round(999 * (downTimeScore / 100));
+        double averageFixTimeWeight = Math.round(999 * (averageFixTimeScore / 100));
+        double suiteTestCaseWeight = Math.round(999 * (testCaseScore / 100));
+        double suiteWeight = Math.round(999 * (suiteScore / 100));
+        return (brokenIndexWeight + downTimeWeight + averageFixTimeWeight + suiteTestCaseWeight + suiteWeight);
+    }
+
     public static long getStatuswiseCount(String s_run_id, String status) {
         Query query = new Query();
         List<Criteria> criteria = new ArrayList<Criteria>();
@@ -637,7 +689,7 @@ public class ReportUtils {
         }
         query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
 
-        long count = mongoOperations.count(query, TestExe.class);
+        long count = mongoOperations.count(query, TestExeDto.class);
         return count;
     }
 
@@ -649,8 +701,8 @@ public class ReportUtils {
         criteria.add(Criteria.where("start_time").gt(starttime));
         criteria.add(Criteria.where("end_time").lt(endtime));
 
-        List<String> disticntStatus = mongoOperations.findDistinct(query, "status", TestExeCommonDto.class, String.class);
-        for (String status : disticntStatus) {
+        List<String> distinctStatus = mongoOperations.findDistinct(query, "status", TestExeCommonDto.class, String.class);
+        for (String status : distinctStatus) {
             Query queryStatus = new Query();
             List<Criteria> criteriaStatus = new ArrayList<Criteria>();
             criteriaStatus.add(Criteria.where("report_name").is(report_name));
@@ -665,15 +717,15 @@ public class ReportUtils {
         return res;
     }
 
-    public static List<TestExeCommonDto> getSortedList(List<TestExeCommonDto> list) {
+    public static List<TestExeCommonDto> getSortedListForTestExeCommon(List<TestExeCommonDto> list) {
         List<TestExeCommonDto> testExes = new ArrayList<>();
         testExes.addAll(list);
         Collections.sort(testExes, new TimeComparatorTestExeCommon());
         return testExes;
     }
 
-    public static List<SuiteExeDto> getSortedList(List<SuiteExeDto> list) {
-        List<SuiteExeDto> suites = new ArrayList<SuiteExeDto>();
+    public static List<SuiteExeDto> getSortedListForSuiteExe(List<SuiteExeDto> list) {
+        List<SuiteExeDto> suites = new ArrayList<>();
         suites.addAll(list);
         Collections.sort(suites, new TimeComparator());
         return suites;
@@ -1377,7 +1429,7 @@ public class ReportUtils {
         return res;
     }
 
-    public static String getFailingSince(List<SuiteExeDto> suites, double brokenIndex) {
+    public static String getFailingSinceForSuiteExe(List<SuiteExeDto> suites, double brokenIndex) {
         if (brokenIndex == 0) {
             return "No Issues";
         } else if (brokenIndex == 1) {
@@ -1398,7 +1450,7 @@ public class ReportUtils {
         }
     }
 
-    public static Long getLastPass(List<SuiteExeDto> suites) {
+    public static Long getLastPassForSuiteExe(List<SuiteExeDto> suites) {
         for (SuiteExeDto suite : suites) {
             if (suite.getStatus().equalsIgnoreCase("PASS")) {
                 return suite.getS_start_time();
@@ -1408,7 +1460,7 @@ public class ReportUtils {
         return 0L;
     }
 
-    public static String lastRunStatus(List<SuiteExeDto> suites) {
+    public static String lastRunStatusForSuiteExe(List<SuiteExeDto> suites) {
         return suites.get(0).getStatus();
     }
 
