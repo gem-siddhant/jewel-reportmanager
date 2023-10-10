@@ -1134,12 +1134,12 @@ public class ReportUtils {
         return finalList;
     }
 
-    public static Map<String, List<SuiteExeDto>> getSuiteNames(String suiteName, List<Long> pid, List<String> projects, long starttime,
+    public static Map<String, List<SuiteExeDto>> getSuiteNames(String reportName, List<Long> pid, List<String> projects, long starttime,
                                                      long endtime,
                                                      List<String> envs) {
         Query query = new Query();
         List<Criteria> criteria = new ArrayList<Criteria>();
-        criteria.add(Criteria.where("report_name").is(suiteName));
+        criteria.add(Criteria.where("report_name").is(reportName));
         criteria.add(Criteria.where("p_id").in(pid));
         criteria.add(Criteria.where("project_name").in(projects));
         criteria.add(Criteria.where("s_start_time").gte(starttime));

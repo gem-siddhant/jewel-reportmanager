@@ -43,10 +43,10 @@ public class RuleController {
 
     @GetMapping(path = "/v3/rule/action", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Response> getRuleActionReportV3(@RequestParam(required = false) final String s_run_id,
-                                                        @RequestParam(required = false) final String tc_run_id, HttpServletRequest request,
-                                                        @RequestParam(value = "pageNo", required = false) final Integer pageNo,
-                                                        @RequestParam(value = "sort", required = false) final Integer sort,
-                                                        @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) {
+                                                          @RequestParam(required = false) final String tc_run_id, HttpServletRequest request,
+                                                          @RequestParam(value = "pageNo", required = false) final Integer pageNo,
+                                                          @RequestParam(value = "sort", required = false) final Integer sort,
+                                                          @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) {
         try {
             return ResponseEntity.ok(ruleService.getRuleActionReportV3(s_run_id, tc_run_id, request, pageNo, sort, sortedColumn));
         } catch (CustomDataException ex) {
@@ -56,11 +56,11 @@ public class RuleController {
 
     @PutMapping(path = "/v1/buildDetails", produces = "application/json")
     public ResponseEntity<Response> updateBuildDetails(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id,
-                                                     @RequestParam(value = "build_id", required = false) final String buildId,
-                                                     @RequestParam(value = "sprint_name", required = false) final String sprint_name,
-                                                     HttpServletRequest request) {
+                                                       @RequestParam(value = "build_id", required = false) final String buildId,
+                                                       @RequestParam(value = "sprint_name", required = false) final String sprint_name,
+                                                       HttpServletRequest request) {
         try {
-            return ResponseEntity.ok(ruleService.updateBuildDetails(s_run_id, buildId, sprint_name, request));
+            return ResponseEntity.ok(ruleService.updateBuildDetails(s_run_id, buildId, sprint_name));
         } catch (CustomDataException ex) {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
         }
@@ -68,7 +68,7 @@ public class RuleController {
 
     @GetMapping(path = "/v1/buildDetails/json", produces = "application/json")
     public ResponseEntity<Response> getBuildDetails(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id,
-                                                  HttpServletRequest request) {
+                                                    HttpServletRequest request) {
         try {
             return ResponseEntity.ok(ruleService.getBuildDetails(s_run_id, request));
         } catch (CustomDataException ex) {

@@ -18,13 +18,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.FindAndReplaceOptions;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Collation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 
@@ -98,7 +96,7 @@ public class RuleService {
         } else if (payload.getReportid() == 2) {
             return createSuiteSummaryReport(payload, pageNo, sort, sortedColumn, errors);
         } else if (payload.getReportid() == 3) {
-            return createSuiteDiagnoseReport(payload, pageNo, sort, sortedColumn, errors);
+            return createSuiteDiagnoseReport(payload, pageNo, errors);
         } else if (payload.getReportid() == 4) {
             return createTestCaseRunReport(payload, pageNo, sort, sortedColumn, errors);
         } else if (payload.getReportid() == 5) {
@@ -111,8 +109,7 @@ public class RuleService {
         }
     }
 
-    private Response createSuiteDiagnoseReport(RuleApi payload, Integer pageNo, Integer sort,
-                                               String sortedColumn, Object errors) throws ParseException {
+    private Response createSuiteDiagnoseReport(RuleApi payload, Integer pageNo, Object errors) throws ParseException {
 
         Map<String, Object> result = new HashMap<>();
         List<Object> headers = new ArrayList<>();
@@ -121,46 +118,35 @@ public class RuleService {
                 "Stability Index", "Downtime", "Average Fix Time", "Last Pass", "Last Status Details",
                 "Analysis");
         result.put("headers", headers);
-        Query query = new Query();
+
         long starttime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
         long endtime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
                 + (1000 * 60 * 60 * 24);
-        List<Criteria> criteria = new ArrayList<>();
+
         List<String> projects = payload.getProject();
         projects.replaceAll(String::toLowerCase);
         List<String> envs = payload.getEnv();
         List<Long> p_ids = payload.getProjectid();
         envs.replaceAll(String::toLowerCase);
-        criteria.add(Criteria.where("p_id").in(p_ids));
-        criteria.add(Criteria.where("env").in(envs));
-        criteria.add(Criteria.where("s_start_time").gte(starttime));
-
-        Pageable pageable;
-        criteria.add(Criteria.where("s_end_time").lte(endtime));
 
         if (pageNo != null && pageNo <= 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
-        }
-        if (pageNo != null && pageNo > 0) {
-            pageable = PageRequest.of(pageNo - 1, 8);
-            query.with(pageable);
+                log.error("Error occurred due to records not found");
+                throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
-        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-        List<String> suiteNames = mongoOperations.findDistinct(query, "report_name", SuiteExeDto.class, String.class);
-        long count = suiteNames.size();
+        List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, starttime, endtime, pageNo);
+        long count = reportNames.size();
         if (count == 0) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
         count = 0;
-        for (String suiteName : suiteNames) {
-            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(suiteName, p_ids, projects, starttime,
+        for (String reportName : reportNames) {
+            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(reportName, p_ids, projects, starttime,
                     endtime, envs);
             count = count + suiteMap.size();
             for (Map.Entry<String, List<SuiteExeDto>> entry : suiteMap.entrySet()) {
-                if (entry.getValue().size() == 0) {
+                if (entry.getValue().isEmpty()) {
                     continue;
                 }
                 List<SuiteExeDto> getAllSuites = entry.getValue();
@@ -195,7 +181,7 @@ public class RuleService {
 
                 Map<String, Object> temp = new HashMap<>();
                 temp.put("Report Name",
-                        ReportUtils.createCustomObject(StringUtils.capitalize(suiteName), "text", suiteName,
+                        ReportUtils.createCustomObject(StringUtils.capitalize(reportName), "text", reportName,
                                 "left"));
 
                 temp.put("Project Name",
@@ -262,43 +248,31 @@ public class RuleService {
                 "Stability Index",
                 "Average Fix Time", "App Stability Score", "Automation Stability Score", "Analysis");
         result.put("headers", headers);
-        Query query = new Query();
+
         long starttime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
         long endtime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
                 + (1000 * 60 * 60 * 24);
-        List<Criteria> criteria = new ArrayList<Criteria>();
         List<String> projects = payload.getProject();
         projects.replaceAll(String::toLowerCase);
         List<String> envs = payload.getEnv();
         envs.replaceAll(String::toLowerCase);
         List<Long> p_ids = payload.getProjectid();
 
-        criteria.add(Criteria.where("p_id").in(p_ids));
-        criteria.add(Criteria.where("env").in(envs));
-        criteria.add(Criteria.where("s_start_time").gte(starttime));
-
-        Pageable pageable;
-        criteria.add(Criteria.where("s_end_time").lte(endtime));
 
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
-        if (pageNo != null && pageNo > 0) {
-            pageable = PageRequest.of(pageNo - 1, 8);
-            query.with(pageable);
-        }
 
-        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-        List<String> suiteNames = mongoOperations.findDistinct(query, "report_name", SuiteExeDto.class, String.class);
-        long count = suiteNames.size();
+        List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, starttime, endtime, pageNo);
+        long count = reportNames.size();
         if (count == 0) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
         count = 0;
-        for (String suiteName : suiteNames) {
-            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(suiteName, p_ids, projects, starttime,
+        for (String reportName : reportNames) {
+            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(reportName, p_ids, projects, starttime,
                     endtime, envs);
             count = count + suiteMap.size();
             for (Map.Entry<String, List<SuiteExeDto>> entry : suiteMap.entrySet()) {
@@ -380,7 +354,7 @@ public class RuleService {
                             ReportUtils.createCustomObject("-", "text", "-", "left"));
                 }
                 temp.put("Report Name",
-                        ReportUtils.createCustomObject(StringUtils.capitalize(suiteName), "text", suiteName,
+                        ReportUtils.createCustomObject(StringUtils.capitalize(reportName), "text", reportName,
                                 "left"));
                 temp.put("Project Name",
                         ReportUtils.createCustomObject(
@@ -439,21 +413,21 @@ public class RuleService {
         long starttime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
         long endtime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
                 + (1000 * 60 * 60 * 24);
-        Query query = new Query();
-        List<Criteria> criteria = new ArrayList<>();
+//        Query query = new Query();
+//        List<Criteria> criteria = new ArrayList<>();
         List<String> projects = payload.getProject();
         projects.replaceAll(String::toLowerCase);
         List<String> envs = payload.getEnv();
         List<Long> p_ids = payload.getProjectid();
         envs.replaceAll(String::toLowerCase);
-        criteria.add(Criteria.where("p_id").in(p_ids));
-        criteria.add(Criteria.where("env").in(envs));
-        criteria.add(Criteria.where("s_start_time").gte(starttime));
+//        criteria.add(Criteria.where("p_id").in(p_ids));
+//        criteria.add(Criteria.where("env").in(envs));
+//        criteria.add(Criteria.where("s_start_time").gte(starttime));
 
-        Pageable pageable;
-        criteria.add(Criteria.where("s_end_time").lte(endtime));
-        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-        long count = mongoOperations.count(query, SuiteExeDto.class);
+
+//        criteria.add(Criteria.where("s_end_time").lte(endtime));
+//        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+        long count = RestApiUtils.getSuiteExeCount(p_ids, envs, starttime, endtime);
         if (count == 0) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
@@ -462,25 +436,26 @@ public class RuleService {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
-        if (pageNo != null) {
-            pageable = PageRequest.of(pageNo - 1, 8);
-            query.with(pageable);
-        }
-        if (sort != null && sort != 0 && sortedColumn != null) {
-            Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                    suiteRunColumnName.get(sortedColumn.toLowerCase()));
-            query.with(Sort.by(order));
-            query.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-        }
+//        Pageable pageable;
+//        if (pageNo != null) {
+//            pageable = PageRequest.of(pageNo - 1, 8);
+//            query.with(pageable);
+//        }
+//        if (sort != null && sort != 0 && sortedColumn != null) {
+//            Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
+//                    suiteRunColumnName.get(sortedColumn.toLowerCase()));
+//            query.with(Sort.by(order));
+//            query.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
+//        }
 
-        List<SuiteExeDto> suiteReports = mongoOperations.find(query, SuiteExeDto.class);
+        List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExes(p_ids, envs, starttime, endtime, pageNo, sort, sortedColumn);
         if (suiteReports.isEmpty()) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NUMBER_IS_ABOVE_TOTAL_PAGES, null, Failure, HttpStatus.OK);
         }
-        List<String> sRunIds = mongoOperations.findDistinct(query, "s_run_id", SuiteExeDto.class, String.class);
-        Query query1 = new Query(Criteria.where("s_run_id").in(sRunIds));
-        List<TestExeDto> testExeDtoList = mongoOperations.find(query1, TestExeDto.class);
+        List<String> sRunIds = RestApiUtils.getS_Run_Ids(p_ids, envs, starttime, endtime, pageNo, sort, sortedColumn);
+//        Query query1 = new Query(Criteria.where("s_run_id").in(sRunIds));
+        List<TestExeDto> testExeDtoList = RestApiUtils.getTestExeListForS_run_ids(sRunIds);
 
         for (SuiteExeDto suites : suiteReports) {
             Map<String, Object> temp = new HashMap<>();
@@ -1519,17 +1494,17 @@ public class RuleService {
             List<Map<String, Object>> stepsVariableValue = new ArrayList<Map<String, Object>>();
             queryTestcase.addCriteria(Criteria.where("tc_run_id").is(tc_run_id));
 
-            TestExeDto tempTest = mongoOperations.findOne(queryTestcase, TestExeDto.class);
+            TestExeDto tempTest = RestApiUtils.getTestExe(tc_run_id);
             if (tempTest == null) {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
             }
-            String token = request.getHeader("Authorization");
-            String user = ReportUtils.getUserDtoFromServetRequest().getUsername();
-            Query checkProjectRole = new Query();
-            List<Criteria> criteria = new ArrayList<>();
 
-            UserDto user1 = ReportUtils.getUserDtoFromServetRequest();
+            String username = ReportUtils.getUserDtoFromServetRequest().getUsername();
+//            Query checkProjectRole = new Query();
+//            List<Criteria> criteria = new ArrayList<>();
+
+            UserDto user = ReportUtils.getUserDtoFromServetRequest();
 
             SuiteExeDto getSuite = RestApiUtils.getSuiteExe(tempTest.getS_run_id());
             if (getSuite == null) {
@@ -1542,12 +1517,12 @@ public class RuleService {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
             }
-            criteria.add(Criteria.where("pid").in(getSuite.getP_id()));
-            criteria.add(Criteria.where("username").is(user));
-            checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-            ProjectRoleDto currerntProject = mongoOperations.findOne(checkProjectRole, ProjectRoleDto.class);
+//            criteria.add(Criteria.where("pid").in(getSuite.getP_id()));
+//            criteria.add(Criteria.where("username").is(username));
+//            checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+            ProjectRoleDto currentProject = RestApiUtils.getProjectRoleByPidAndUsername(getSuite.getP_id(), username);
 
-            if (currerntProject == null && !((user1.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user1.getRealCompany())) || user1.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
+            if (currentProject == null && !((user.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
             }
@@ -1802,13 +1777,11 @@ public class RuleService {
         }
     }
 
-    public Response updateBuildDetails(String s_run_id, String buildId, String sprint_name,
-                                       HttpServletRequest request) {
+    public Response updateBuildDetails(String s_run_id, String buildId, String sprint_name){
 
         UserDto user = ReportUtils.getUserDtoFromServetRequest();
         ProjectDto project;
-        Query query = new Query(Criteria.where("s_run_id").is(s_run_id));
-        SuiteExeDto suiteExeDto = mongoOperations.findOne(query, SuiteExeDto.class);
+        SuiteExeDto suiteExeDto = RestApiUtils.getSuiteExe(s_run_id);
 
         if (suiteExeDto != null && user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString())) {
             project = RestApiUtils.getProjectByPidAndStatus(suiteExeDto.getP_id(), ACTIVE_STATUS);
@@ -1821,14 +1794,7 @@ public class RuleService {
             throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
 
-        List<Criteria> criteria = new ArrayList<>();
-        ProjectRoleDto projectRole = null;
-        criteria.add(Criteria.where("pid").is(project.getPid()));
-        criteria.add(Criteria.where("username").is(user.getUsername()));
-        criteria.add(Criteria.where("status").is(ACTIVE_STATUS));
-        Query checkProjectRole = new Query();
-        checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-        projectRole = mongoOperations.findOne(checkProjectRole, ProjectRoleDto.class);
+        ProjectRoleDto projectRole = RestApiUtils.getProjectRoleEntity(project.getPid(), user.getUsername(), ACTIVE_STATUS);
 
         if (projectRole == null &&
                 !((user.getRole().equalsIgnoreCase(ADMIN.toString())
@@ -1855,7 +1821,7 @@ public class RuleService {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, Failure, HttpStatus.BAD_REQUEST);
             }
-            mongoOperations.findAndReplace(query, suiteExeDto, new FindAndReplaceOptions().upsert().returnNew());
+            RestApiUtils.updateSuiteExe(s_run_id, suiteExeDto);
             Map<String, Object> messageMap = new HashMap<>();
             messageMap.put(s_run_id, "Updated");
             simpMessagingTemplate.convertAndSendToUser(String.valueOf(project.getPid()), "/private", messageMap);
@@ -1881,14 +1847,14 @@ public class RuleService {
             throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
 
-        List<Criteria> criteria = new ArrayList<>();
-        ProjectRoleDto projectRole = null;
-        criteria.add(Criteria.where("pid").is(project.getPid()));
-        criteria.add(Criteria.where("username").is(user.getUsername()));
-        criteria.add(Criteria.where("status").is(ACTIVE_STATUS));
-        Query checkProjectRole = new Query();
-        checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-        projectRole = mongoOperations.findOne(checkProjectRole, ProjectRoleDto.class);
+//        List<Criteria> criteria = new ArrayList<>();
+//        ProjectRoleDto projectRole = null;
+//        criteria.add(Criteria.where("pid").is(project.getPid()));
+//        criteria.add(Criteria.where("username").is(user.getUsername()));
+//        criteria.add(Criteria.where("status").is(ACTIVE_STATUS));
+//        Query checkProjectRole = new Query();
+//        checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+        ProjectRoleDto projectRole = RestApiUtils.getProjectRoleEntity(project.getPid(), user.getUsername(), ACTIVE_STATUS);
 
         if (projectRole == null &&
                 !((user.getRole().equalsIgnoreCase(ADMIN.toString())
