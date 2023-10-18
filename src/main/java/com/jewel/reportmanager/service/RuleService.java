@@ -1488,7 +1488,7 @@ public class RuleService {
 
         } else {
             ObjectMapper oMapper = new ObjectMapper();
-            Query queryTestcase = new Query();
+//            Query queryTestcase = new Query();
             Map<String, Object> stepData = new HashMap<String, Object>();
             Set<String> stepsListHeaders = new HashSet<String>();
             List<Map<String, Object>> stepsVariableValue = new ArrayList<Map<String, Object>>();
@@ -1897,7 +1897,7 @@ public class RuleService {
             throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
-        Map<String, String> suiteRunColumnName = ReportUtils.getSuiteColumnName();
+//        Map<String, String> suiteRunColumnName = ReportUtils.getSuiteColumnName();
         Map<String, Object> result = new HashMap<>();
         List<Object> headers = new ArrayList<>();
         Collections.addAll(headers, "Start Time", "Status", "Action", "Testcases", "Run Type", "Run Mode", "Token User", "Base User");
@@ -1907,39 +1907,39 @@ public class RuleService {
         long endtime = new SimpleDateFormat("MM/dd/yyyy").parse((String) payload.get("end_time")).getTime() + (1000 * 60 * 60 * 24);
 
 
-        Criteria criteria = Criteria.where("p_id").is(getSuite.getP_id());
-        if (category != null && category.equalsIgnoreCase("criteria")) {
-            criteria.and("env").is(getSuite.getEnv()).and("report_name").is(getSuite.getReport_name());
-        }
+//        Criteria criteria = Criteria.where("p_id").is(getSuite.getP_id());
+//        if (category != null && category.equalsIgnoreCase("criteria")) {
+//            criteria.and("env").is(getSuite.getEnv()).and("report_name").is(getSuite.getReport_name());
+//        }
 
-        criteria.and("s_start_time").gte(starttime)
-                .and("s_end_time").lte(endtime);
-        Query reportsQuery = new Query(criteria);
-        Pageable pageable;
+//        criteria.and("s_start_time").gte(starttime).and("s_end_time").lte(endtime);
+//        Query reportsQuery = new Query(criteria);
+//        Pageable pageable;
 
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
-        if (pageNo != null) {
-            pageable = PageRequest.of(pageNo - 1, 8);
-            reportsQuery.with(pageable);
-        }
-        if (sort != null && sort != 0 && sortedColumn != null) {
-            Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                    suiteRunColumnName.get(sortedColumn.toLowerCase()));
-            reportsQuery.with(Sort.by(order));
-            reportsQuery.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-        }
+//        if (pageNo != null) {
+//            pageable = PageRequest.of(pageNo - 1, 8);
+//            reportsQuery.with(pageable);
+//        }
+//        if (sort != null && sort != 0 && sortedColumn != null) {
+//            Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
+//                    suiteRunColumnName.get(sortedColumn.toLowerCase()));
+//            reportsQuery.with(Sort.by(order));
+//            reportsQuery.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
+//        }
 
-        List<SuiteExeDto> suiteReports = mongoOperations.find(reportsQuery, SuiteExeDto.class);
+        List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExesForSuiteTimeline(getSuite.getP_id(), category, getSuite.getEnv(), getSuite.getReport_name(), starttime, endtime, pageNo, sort, sortedColumn);
         if (suiteReports.isEmpty()) {
             result.put("data", data);
             return new Response(result, NO_RECORDS_FOUND, Success);
         }
-        List<String> sRunIds = mongoOperations.findDistinct(reportsQuery, "s_run_id", SuiteExeDto.class, String.class);
-        Query query1 = new Query(Criteria.where("s_run_id").in(sRunIds));
-        List<TestExeDto> testcaseDetails = mongoOperations.find(query1, TestExeDto.class);
+        List<String> sRunIds = RestApiUtils.getS_Run_IdsForSuiteTimeline(getSuite.getP_id(), category, getSuite.getEnv(), getSuite.getReport_name(), starttime, endtime, pageNo, sort, sortedColumn);
+//        Query query1 = new Query(Criteria.where("s_run_id").in(sRunIds));
+//        List<TestExeDto> testcaseDetails = mongoOperations.find(query1, TestExeDto.class);
+        List<TestExeDto> testcaseDetails = RestApiUtils.getTestExeListForS_run_ids(sRunIds);
         SuiteDto suiteData = RestApiUtils.getSuiteByReportNameAndStatus(getSuite.getReport_name(), ACTIVE_STATUS);
         if (suiteData != null) {
             result.put("s_id", suiteData.getS_id());
