@@ -683,7 +683,7 @@ public class RestApiUtils {
     /**
      * Returns a list of test exes for s_run_ids.
      *
-     * @param
+     * @param s_run_ids
      * @return List<TestExeDto>
      */
     public static List<TestExeDto> getTestExeListForS_run_ids(List<String> s_run_ids) {
@@ -740,6 +740,38 @@ public class RestApiUtils {
         uriVariables.put("pid", pid);
         uriVariables.put("status", status);
         return (ProjectDto) RestClient.getApi(projectManagerUrl + "/v2/project/pid/status?pid={pid}&status={status}", httpEntity, ProjectDto.class, uriVariables).getBody();
+    }
+
+    /**
+     * Returns a list of Variance Classification for varianceId and varianceStatus.
+     *
+     * @param varianceId
+     * @param varianceStatus
+     * @return List<VarianceClassificationDto>
+     */
+    public static List<VarianceClassificationDto> getVarianceClassificationList(Set<Long> varianceId, String varianceStatus) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("varianceId", varianceId);
+        uriVariables.put("varianceStatus", varianceStatus);
+        try {
+            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", httpEntity, Response.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            gson = new Gson();
+            Type type = new TypeToken<List<VarianceClassificationDto>>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.info("Variance Classification list is empty for varianceId: {} and varianceStatus: {}", varianceId, varianceStatus);
+            return Collections.EMPTY_LIST;
+        }
     }
 
 }

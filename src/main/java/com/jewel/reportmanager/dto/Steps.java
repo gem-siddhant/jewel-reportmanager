@@ -13,14 +13,11 @@ import java.util.List;
 @Document
 public class Steps {
 
-    @Field
     @Indexed(unique = true)
     private String tc_run_id;
 
-    @Field
     private String s_run_id;
 
-    @Field
     private List<Object> steps;
 
 }

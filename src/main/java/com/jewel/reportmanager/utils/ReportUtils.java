@@ -2,7 +2,6 @@ package com.jewel.reportmanager.utils;
 
 import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.entity.RuleApi;
-import com.jewel.reportmanager.entity.VarianceClassification;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.enums.UserRole;
 import com.jewel.reportmanager.exception.CustomDataException;
@@ -801,7 +800,7 @@ public class ReportUtils {
     }
 
     public static String checkStatusOfTestCaseByStepsIfVarianceIsThere(String tc_run_id,
-                                                                       Map<Long, VarianceClassification> data) {
+                                                                       Map<Long, VarianceClassificationDto> data) {
         Query query = new Query(Criteria.where("tc_run_id").is(tc_run_id));
         Steps steps = mongoOperations.findOne(query, Steps.class);
         if (steps.getSteps().size() == 0) {
@@ -1640,11 +1639,11 @@ public class ReportUtils {
             for (SuiteExeDto suiteExe : suiteExes) {
                 Query varianceQuery = new Query(Criteria.where("varianceId").in(suiteExe.getVarianceIds())
                         .and("varianceStatus").is("ACTIVE").and("endDate").gt(new Date().getTime()));
-                List<VarianceClassification> varianceClassificationList = mongoOperations.find(varianceQuery,
-                        VarianceClassification.class);
-                Map<Long, VarianceClassification> variannceList = new HashMap<>();
+                List<VarianceClassificationDto> varianceClassificationList = mongoOperations.find(varianceQuery,
+                        VarianceClassificationDto.class);
+                Map<Long, VarianceClassificationDto> variannceList = new HashMap<>();
                 List<Long> varinaceIds = new ArrayList<>();
-                for (VarianceClassification varianceClassification : varianceClassificationList) {
+                for (VarianceClassificationDto varianceClassification : varianceClassificationList) {
                     varinaceIds.add(varianceClassification.getVarianceId());
                     variannceList.put(varianceClassification.getVarianceId(), varianceClassification);
                 }
@@ -1661,7 +1660,7 @@ public class ReportUtils {
                             || testExe.getClassificationDetails() != null) {
                         if (testExe.getVarianceId() != null
                                 || (testExe.getStepVarianceIds() != null && testExe.getStepVarianceIds().size() > 0)) {
-                            VarianceClassification varianceClassification = variannceList
+                            VarianceClassificationDto varianceClassification = variannceList
                                     .getOrDefault(testExe.getVarianceId(), null);
                             if (varianceClassification != null) {
                                 testExe.setStatus("PASS");

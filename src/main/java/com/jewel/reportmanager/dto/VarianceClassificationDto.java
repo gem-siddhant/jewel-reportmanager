@@ -1,4 +1,4 @@
-package com.jewel.reportmanager.entity;
+package com.jewel.reportmanager.dto;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -10,11 +10,11 @@ import javax.validation.constraints.NotNull;
 
 @Getter
 @Setter
-public class VarianceClassification {
+public class VarianceClassificationDto {
+
     @Transient
     public static final String SEQUENCE_NAME = "variance_id";
 
-    @Id
     @Indexed(unique = true)
     private Long varianceId;
 
@@ -49,4 +49,5 @@ public class VarianceClassification {
     private String varianceStatus;
 
     private String updatedBy;
+
 }

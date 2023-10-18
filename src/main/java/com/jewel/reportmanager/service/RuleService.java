@@ -5,7 +5,6 @@ import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.dto.Steps;
 import com.jewel.reportmanager.entity.ClassificationDetails;
 import com.jewel.reportmanager.entity.RuleApi;
-import com.jewel.reportmanager.entity.VarianceClassification;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.utils.ReportUtils;
@@ -898,10 +897,10 @@ public class RuleService {
                 throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
             }
             Query varianceQuery = new Query(Criteria.where("varianceId").in(getSuite.getVarianceIds()).and("varianceStatus").is(ACTIVE_STATUS).and("endDate").gt(new Date().getTime()));
-            List<VarianceClassification> varianceClassificationList = mongoOperations.find(varianceQuery, VarianceClassification.class);
-            Map<Long, VarianceClassification> variannceList = new HashMap<>();
+            List<VarianceClassificationDto> varianceClassificationList = mongoOperations.find(varianceQuery, VarianceClassificationDto.class);
+            Map<Long, VarianceClassificationDto> variannceList = new HashMap<>();
             List<Long> varinaceIds = new ArrayList<>();
-            for (VarianceClassification varianceClassification : varianceClassificationList) {
+            for (VarianceClassificationDto varianceClassification : varianceClassificationList) {
                 varinaceIds.add(varianceClassification.getVarianceId());
                 variannceList.put(varianceClassification.getVarianceId(), varianceClassification);
             }
@@ -977,7 +976,7 @@ public class RuleService {
                             if (testExe.getVarianceId() != null || (testExe.getStepVarianceIds() != null && !testExe.getStepVarianceIds().isEmpty())) {
                                 varianceIsThere = true;
                                 suiteVarianceIsThere = true;
-                                VarianceClassification varianceClassification = variannceList.getOrDefault(testExe.getVarianceId(), null);
+                                VarianceClassificationDto varianceClassification = variannceList.getOrDefault(testExe.getVarianceId(), null);
                                 if (varianceClassification != null) {
                                     varianceIsActive = true;
                                     suiteVarianceIsActive = true;
@@ -1270,7 +1269,7 @@ public class RuleService {
                 }
 
                 List<TestExeDto> tempTest = mongoOperations.find(queryTestcase, TestExeDto.class);
-                if (tempTest.size() == 0) {
+                if (tempTest.isEmpty()) {
                     log.error("Error occurred due to records not found");
                     throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
                 }
@@ -1296,7 +1295,7 @@ public class RuleService {
                         if (testExe.getVarianceId() != null || (testExe.getStepVarianceIds() != null && testExe.getStepVarianceIds().size() > 0)) {
                             varianceIsThere = true;
                             suiteVarianceIsThere = true;
-                            VarianceClassification varianceClassification = variannceList.getOrDefault(testExe.getVarianceId(), null);
+                            VarianceClassificationDto varianceClassification = variannceList.getOrDefault(testExe.getVarianceId(), null);
                             if (varianceClassification != null) {
                                 varianceIsActive = true;
                                 suiteVarianceIsActive = true;
@@ -1492,7 +1491,7 @@ public class RuleService {
             Map<String, Object> stepData = new HashMap<String, Object>();
             Set<String> stepsListHeaders = new HashSet<String>();
             List<Map<String, Object>> stepsVariableValue = new ArrayList<Map<String, Object>>();
-            queryTestcase.addCriteria(Criteria.where("tc_run_id").is(tc_run_id));
+//            queryTestcase.addCriteria(Criteria.where("tc_run_id").is(tc_run_id));
 
             TestExeDto tempTest = RestApiUtils.getTestExe(tc_run_id);
             if (tempTest == null) {
@@ -1526,11 +1525,11 @@ public class RuleService {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
             }
-            Query varianceQuery = new Query(Criteria.where("varianceId").in(getSuite.getVarianceIds()).and("varianceStatus").is(ACTIVE_STATUS).and("endDate").gt(new Date().getTime()));
-            List<VarianceClassification> varianceClassificationList = mongoOperations.find(varianceQuery, VarianceClassification.class);
-            Map<Long, VarianceClassification> variannceList = new HashMap<>();
+//            Query varianceQuery = new Query(Criteria.where("varianceId").in(getSuite.getVarianceIds()).and("varianceStatus").is(ACTIVE_STATUS).and("endDate").gt(new Date().getTime()));
+            List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
+            Map<Long, VarianceClassificationDto> variannceList = new HashMap<>();
             List<Long> varinaceIds = new ArrayList<>();
-            for (VarianceClassification varianceClassification : varianceClassificationList) {
+            for (VarianceClassificationDto varianceClassification : varianceClassificationList) {
                 varinaceIds.add(varianceClassification.getVarianceId());
                 variannceList.put(varianceClassification.getVarianceId(), varianceClassification);
             }
@@ -1543,7 +1542,7 @@ public class RuleService {
                 if (tempTest.getVarianceId() != null) {
                     varianceIsThereAtTestLevel = true;
                 }
-                VarianceClassification varianceClassification = variannceList.getOrDefault(tempTest.getVarianceId(), null);
+                VarianceClassificationDto varianceClassification = variannceList.getOrDefault(tempTest.getVarianceId(), null);
                 if (varianceClassification != null) {
                     varianceIsActiveAtTestLevel = true;
                     statusTestLevel = "PASS";
@@ -1580,7 +1579,7 @@ public class RuleService {
                         if (stepsListHeaders.contains("VARIANCEID")) {
                             Long varianceId = (Long) stepMap.get("VARIANCEID");
                             varianceIsThere = true;
-                            VarianceClassification varianceClassification = variannceList.getOrDefault(varianceId, null);
+                            VarianceClassificationDto varianceClassification = variannceList.getOrDefault(varianceId, null);
                             if (varianceClassification != null) {
                                 clickable = true;
                                 varianceIsActive = true;
