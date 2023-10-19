@@ -774,4 +774,34 @@ public class RestApiUtils {
         }
     }
 
+    /**
+     * Returns steps from tc_run_id.
+     *
+     * @param tc_run_id
+     * @return StepsDto
+     */
+    public static StepsDto getSteps(String tc_run_id) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("tc_run_id", tc_run_id);;
+        try {
+            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/steps?tc_run_id={tc_run_id}", httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            gson = new Gson();
+            Type type = new TypeToken<StepsDto>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.info("Steps not found for tc_run_id: {}", tc_run_id);
+            return null;
+        }
+    }
+
 }

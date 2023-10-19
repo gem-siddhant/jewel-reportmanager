@@ -802,7 +802,7 @@ public class ReportUtils {
     public static String checkStatusOfTestCaseByStepsIfVarianceIsThere(String tc_run_id,
                                                                        Map<Long, VarianceClassificationDto> data) {
         Query query = new Query(Criteria.where("tc_run_id").is(tc_run_id));
-        Steps steps = mongoOperations.findOne(query, Steps.class);
+        StepsDto steps = mongoOperations.findOne(query, StepsDto.class);
         if (steps.getSteps().size() == 0) {
             return "PASS";
         }
