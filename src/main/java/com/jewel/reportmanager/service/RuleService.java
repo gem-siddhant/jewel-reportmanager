@@ -5,6 +5,7 @@ import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.dto.StepsDto;
 import com.jewel.reportmanager.entity.ClassificationDetails;
 import com.jewel.reportmanager.entity.RuleApi;
+import com.jewel.reportmanager.enums.OperationType;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.utils.ReportUtils;
@@ -14,13 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.data.mongodb.core.query.Collation;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
@@ -42,72 +36,421 @@ import static javax.accessibility.AccessibleState.ACTIVE;
 @Slf4j
 @Service
 public class RuleService {
-    @Autowired
-    private MongoOperations mongoOperations;
+
     @Autowired
     private SimpMessageSendingOperations simpMessagingTemplate;
 
+    /**
+     *
+     * @param payload
+     * @param pageNo
+     * @param sort
+     * @param sortedColumn
+     * @return Response
+     * @throws ParseException
+     */
     public Response getRuleReport(RuleApi payload, Integer pageNo,
                                   Integer sort, String sortedColumn) throws ParseException {
 
         if ((sort != null && sortedColumn == null) || (sort == null && sortedColumn != null)) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, Failure, HttpStatus.OK);
+            throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, FAILURE, HttpStatus.OK);
         }
         if (sort != null && sort != -1 && sort != 0 && sort != 1) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(INVALID_SORT_VALUE, null, Failure, HttpStatus.OK);
+            throw new CustomDataException(INVALID_SORT_VALUE, null, FAILURE, HttpStatus.OK);
         }
 
         UserDto user = ReportUtils.getUserDtoFromServetRequest();
         String username = user.getUsername();
 
         List<Long> allPids = new ArrayList<>(payload.getProjectid());
+        List<Long> accessPids;
         if (user.getRole().equalsIgnoreCase(USER.toString())) {
-            List<Long> accessPids = RestApiUtils.getProjectRolePidList(payload.getProjectid(), ACTIVE_STATUS, username);
-            payload.setProjectid(accessPids);
-            allPids.removeAll(accessPids);
+            accessPids = RestApiUtils.getProjectRolePidList(payload.getProjectid(), ACTIVE_STATUS, username);
         } else if (user.getRole().equalsIgnoreCase(ADMIN.toString())) {
-            List<Long> accessPids = RestApiUtils.getProjectPidListForRealCompanyNameAndStatus(payload.getProjectid(), ACTIVE_STATUS, user.getRealCompany().toUpperCase());
-            payload.setProjectid(accessPids);
-            allPids.removeAll(accessPids);
+            accessPids = RestApiUtils.getProjectPidListForRealCompanyNameAndStatus(payload.getProjectid(), ACTIVE_STATUS, user.getRealCompany().toUpperCase());
         } else {
-            List<Long> accessPids = RestApiUtils.getProjectPidList(payload.getProjectid(), ACTIVE_STATUS, username);
-            payload.setProjectid(accessPids);
-            allPids.removeAll(accessPids);
+            accessPids = RestApiUtils.getProjectPidList(payload.getProjectid(), ACTIVE_STATUS, username);
         }
-
-        if (payload.getProjectid().isEmpty()) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(NOT_ACCESS_TO_PROJECT, null, Failure, HttpStatus.OK);
-        }
-        List<String> errors = null;
+        payload.setProjectid(accessPids);
+        allPids.removeAll(accessPids);
+//
+//        if (payload.getProjectid().isEmpty()) {
+//            log.error("Error occurred due to records not found");
+//            throw new CustomDataException(NOT_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.OK);
+//        }
+        List<String> errors = new ArrayList<>();
         if (!allPids.isEmpty()) {
-            errors = new ArrayList<>();
             List<String> projectNames = RestApiUtils.getProjectNames(payload.getProjectid());
             for (String projectName : projectNames) {
                 errors.add("You don't have access for " + projectName.toUpperCase());
             }
         }
 
-        if (payload.getReportid() == 1) {
-            return createSuiteRunReport(payload, pageNo, sort, sortedColumn, errors);
-        } else if (payload.getReportid() == 2) {
-            return createSuiteSummaryReport(payload, pageNo, sort, sortedColumn, errors);
-        } else if (payload.getReportid() == 3) {
-            return createSuiteDiagnoseReport(payload, pageNo, errors);
-        } else if (payload.getReportid() == 4) {
-            return createTestCaseRunReport(payload, pageNo, sort, sortedColumn, errors);
-        } else if (payload.getReportid() == 5) {
-            return createTestCaseSummaryReport(payload, pageNo, sort, sortedColumn, errors);
-        } else if (payload.getReportid() == 6) {
-            return createTestCaseDiagnoseReport(payload, pageNo, sort, sortedColumn, errors);
-        } else {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(REPORT_ID_NOT_VALID, null, Failure, HttpStatus.OK);
+        switch ((int) payload.getReportid()) {
+            case 1:
+                return createSuiteRunReport(payload, pageNo, sort, sortedColumn, errors);
+            case 2:
+                return createSuiteSummaryReport(payload, pageNo, sort, sortedColumn, errors);
+            case 3:
+                return createSuiteDiagnoseReport(payload, pageNo, errors);
+            case 4:
+                return createTestCaseRunReport(payload, pageNo, sort, sortedColumn, errors);
+            case 5:
+                return createTestCaseSummaryReport(payload, pageNo, sort, sortedColumn, errors);
+            case 6:
+                return createTestCaseDiagnoseReport(payload, pageNo, sort, sortedColumn, errors);
+            default:
+                log.error("Error occurred due to records not found");
+                throw new CustomDataException(REPORT_ID_NOT_VALID, null, FAILURE, HttpStatus.OK);
         }
+
     }
 
+    /**
+     * Creates suite run report.
+     *
+     * @param payload
+     * @param pageNo
+     * @param sort
+     * @param sortedColumn
+     * @param errors
+     * @return
+     * @throws ParseException
+     */
+
+    private Response createSuiteRunReport(RuleApi payload, Integer pageNo,
+                                          Integer sort, String sortedColumn, Object errors) throws ParseException {
+
+        Map<String, Object> result = new HashMap<>();
+        List<Object> headers = new ArrayList<>();
+        Collections.addAll(headers, "Project Name", "Report Name", "Environment", "Status", "Executed By", "Action",
+                "Duration", "Testcase Summary");
+        result.put("headers", headers);
+        List<Map<String, Object>> data = new ArrayList<>();
+        long startTime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
+        long endTime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
+                + (1000 * 60 * 60 * 24);
+        List<String> projects = payload.getProject();
+        projects.replaceAll(String::toLowerCase);
+        List<String> envs = payload.getEnv();
+        List<Long> p_ids = payload.getProjectid();
+        envs.replaceAll(String::toLowerCase);
+
+        long count = RestApiUtils.getSuiteExeCount(p_ids, envs, startTime, endTime);
+        if (count == 0) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+        }
+        if (pageNo != null && pageNo <= 0) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+        }
+
+        List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExes(p_ids, envs, startTime, endTime, pageNo, sort, sortedColumn);
+        if (suiteReports.isEmpty()) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(PAGE_NUMBER_IS_ABOVE_TOTAL_PAGES, null, FAILURE, HttpStatus.OK);
+        }
+        List<String> sRunIds = RestApiUtils.getS_Run_Ids(p_ids, envs, startTime, endTime, pageNo, sort, sortedColumn);
+
+        List<TestExeDto> testExeDtoList = RestApiUtils.getTestExeListForS_run_ids(sRunIds);
+
+        for (SuiteExeDto suiteExeDto : suiteReports) {
+            data.add(createSuiteExeReport(testExeDtoList, suiteExeDto));
+        }
+
+        Collections.reverse(data);
+
+        result.put("data", data);
+        result.put("totalElements", count);
+        if (errors != null) {
+            result.put("errors", errors);
+        }
+        return new Response(result, count + " Records found", SUCCESS);
+    }
+
+    /**
+     * creates suite exe report for list of suite exes.
+     *
+     * @param testExeDtoList
+     * @param suiteExeDto
+     * @return
+     */
+    private Map<String, Object> createSuiteExeReport(List<TestExeDto> testExeDtoList, SuiteExeDto suiteExeDto){
+        Map<String, Object> temp = new HashMap<>();
+        Map<String, Long> statusMap = new HashMap<>();
+        Set<String> users = new HashSet<>();
+
+        for (StatusColor statusColor : StatusColor.values()) {
+            statusMap.put(statusColor.toString(), 0L);
+        }
+        if (!testExeDtoList.isEmpty()) {
+            temp = getTestExeStatusForSuiteExe(testExeDtoList, suiteExeDto, users, statusMap);
+        }
+
+        createActionReportForSuiteExe(temp, suiteExeDto, users);
+        return temp;
+    }
+
+    /**
+     * Return test exe status for suite exe.
+     *
+     * @param testExeDtoList
+     * @param suiteExeDto
+     * @param users
+     * @param statusMap
+     * @return
+     */
+    private Map<String, Object> getTestExeStatusForSuiteExe(List<TestExeDto> testExeDtoList, SuiteExeDto suiteExeDto, Set<String> users, Map<String, Long> statusMap){
+        Map<String, Object> temp = new HashMap<>();
+        long totalCount = 0L;
+        for (TestExeDto testExeDto : testExeDtoList) {
+            if (!testExeDto.getS_run_id().equals(suiteExeDto.getS_run_id())) {
+                continue;
+            }
+
+            if (testExeDto.getInvoke_user() != null) {
+                users.add(testExeDto.getInvoke_user());
+            }
+            if (testExeDto.getS_run_id().equals(suiteExeDto.getS_run_id())) {
+                String status = testExeDto.getStatus().toUpperCase();
+                long value = statusMap.get(status) + 1;
+                statusMap.put(status, value);
+                switch (status) {
+                    case "PASS":
+                    case "FAIL":
+                    case "EXE":
+                    case "ERR":
+                    case "INFO":
+                    case "WARN":
+                        totalCount++;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        if (totalCount > 0) {
+            Map<String, Object> doughnutSubType = new HashMap<>();
+            doughnutSubType.put("subType", "doughnut_chart");
+            doughnutSubType.put("heading", "Total Testcase(s)");
+            temp.put("Testcase Summary",
+                    ReportUtils.createCustomObject(ReportUtils.createDoughnutChart(statusMap),
+                            "chart", totalCount, "center", doughnutSubType));
+        }
+        return temp;
+    }
+
+    /**
+     * Creates action report for suite exe to generate rule report.
+     *
+     * @param temp
+     * @param suiteExeDto
+     * @param users
+     */
+    private void createActionReportForSuiteExe(Map<String, Object> temp, SuiteExeDto suiteExeDto, Set<String> users){
+        Map<String, Object> actionReport = new HashMap<>();
+        actionReport.put("subType", "execution_report");
+        temp.put("Action",
+                ReportUtils.createCustomObject(suiteExeDto.getS_run_id(), "action", suiteExeDto.getS_run_id(), "center",
+                        actionReport));
+        temp.put("Report Name",
+                ReportUtils.createCustomObject(suiteExeDto.getReport_name(), "text", suiteExeDto.getReport_name(),
+                        "left"));
+        temp.put("Project Name",
+                ReportUtils.createCustomObject(StringUtils.capitalize(suiteExeDto.getProject_name()), "text",
+                        suiteExeDto.getProject_name(),
+                        "left"));
+        temp.put("Environment",
+                ReportUtils.createCustomObject(StringUtils.capitalize(suiteExeDto.getEnv()), "text", suiteExeDto.getEnv(),
+                        "left"));
+        if (!users.isEmpty()) {
+            temp.put("Executed By", ReportUtils.createCustomObject(users,
+                    "pills", users, "left"));
+        } else {
+            temp.put("Executed By", ReportUtils.createCustomObject("-",
+                    "text", "-", "center"));
+        }
+        temp.put("Status",
+                ReportUtils.createCustomObject(suiteExeDto.getStatus(), "status", suiteExeDto.getStatus(), "center"));
+
+        if (suiteExeDto.getS_end_time() != 0) {
+            Map<String, Object> subtype = new HashMap<>();
+            subtype.put("subType", "duration");
+            Map<String, Object> values = new HashMap<>();
+            values.put("start_time", suiteExeDto.getS_start_time());
+            values.put("end_time", suiteExeDto.getS_end_time());
+            temp.put("Duration",
+                    ReportUtils.createCustomObject(values, "date",
+                            ((float) (suiteExeDto.getS_end_time() - suiteExeDto.getS_start_time())),
+                            "center", subtype));
+        } else {
+            temp.put("Duration", ReportUtils.createCustomObject("-", "text", suiteExeDto.getS_end_time(), "center"));
+        }
+    }
+    private Response createSuiteSummaryReport(RuleApi payload, Integer pageNo, Integer sort,
+                                              String sortedColumn, Object errors) throws ParseException {
+
+        Map<String, Object> result = new HashMap<>();
+        List<Object> headers = new ArrayList<>();
+        List<Map<String, Object>> data = new ArrayList<>();
+        Collections.addAll(headers, "Project Name", "Report Name", "Environment", "Suite Summary", "Last 5 Runs",
+                "Stability Index",
+                "Average Fix Time", "App Stability Score", "Automation Stability Score", "Analysis");
+        result.put("headers", headers);
+
+        long starttime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
+        long endtime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
+                + (1000 * 60 * 60 * 24);
+        List<String> projects = payload.getProject();
+        projects.replaceAll(String::toLowerCase);
+        List<String> envs = payload.getEnv();
+        envs.replaceAll(String::toLowerCase);
+        List<Long> p_ids = payload.getProjectid();
+
+
+        if (pageNo != null && pageNo <= 0) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+        }
+
+        List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, starttime, endtime, pageNo);
+        long count = reportNames.size();
+        if (count == 0) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+        }
+        count = 0;
+        for (String reportName : reportNames) {
+            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(reportName, p_ids, projects, starttime,
+                    endtime, envs);
+            count = count + suiteMap.size();
+            for (Map.Entry<String, List<SuiteExeDto>> entry : suiteMap.entrySet()) {
+                if (entry.getValue().size() == 0) {
+                    continue;
+                }
+                List<SuiteExeDto> getAllSuites = entry.getValue();
+                Map<String, Long> statusMap = new HashMap<>();
+                for (StatusColor statusColor : StatusColor.values()) {
+                    statusMap.put(statusColor.toString(), 0L);
+                }
+                long totalCount = 0L;
+                for (SuiteExeDto suiteExeDto : getAllSuites) {
+                    if (suiteExeDto.getStatus().toUpperCase().equals(PASS.toString())) {
+                        long value = statusMap.get(PASS.toString()) + 1;
+                        statusMap.put(PASS.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (suiteExeDto.getStatus().toUpperCase().equals(FAIL.toString())) {
+                        long value = statusMap.get(FAIL.toString()) + 1;
+                        statusMap.put(FAIL.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (suiteExeDto.getStatus().toUpperCase().equals(EXE.toString())) {
+                        long value = statusMap.get(EXE.toString()) + 1;
+                        statusMap.put(EXE.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (suiteExeDto.getStatus().toUpperCase().equals(ERR.toString())) {
+                        long value = statusMap.get(ERR.toString()) + 1;
+                        statusMap.put(ERR.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (suiteExeDto.getStatus().toUpperCase().equals(StatusColor.INFO.toString())) {
+                        long value = statusMap.get(StatusColor.INFO.toString()) + 1;
+                        statusMap.put(StatusColor.INFO.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                    if (suiteExeDto.getStatus().toUpperCase().equals(WARN.toString())) {
+                        long value = statusMap.get(WARN.toString()) + 1;
+                        statusMap.put(WARN.toString(), value);
+                        totalCount++;
+                        continue;
+                    }
+                }
+                String env = getAllSuites.get(0).getEnv();
+                List<SuiteExeDto> sortedList = ReportUtils.getSortedListForSuiteExe(getAllSuites);
+                double brokenIndex = ReportUtils.brokenIndexForSuiteExe(getAllSuites);
+                int stablityIndex = ReportUtils.stabilityIndex(brokenIndex);
+                long averageFixTime = ReportUtils.averageFixTimeForSuiteExe(getAllSuites);
+                long downTime = ReportUtils.getDownTimeForSuiteExe(sortedList);
+                Map<String, Object> last5SuiteRuns = ReportUtils.last5SuiteRuns(getAllSuites);
+                Map<String, Long> culprit = ReportUtils.culprit(getAllSuites);
+
+                double devscore = ReportUtils.getScore(brokenIndex, downTime, averageFixTime, env, getAllSuites);
+                double qascore = ReportUtils.getQAScore(getAllSuites);
+                String averageFixTimeStr;
+                if (brokenIndex == 1) {
+                    averageFixTimeStr = "Never Fixed";
+                } else {
+                    averageFixTimeStr = ReportUtils.convertLongToTime(averageFixTime);
+                }
+                Map<String, Object> temp = new HashMap<>();
+                if (last5SuiteRuns != null) {
+                    Map<String, Object> stackedBarChartType = new HashMap<>();
+                    stackedBarChartType.put("subType", "stacked_bar_chart");
+                    stackedBarChartType.put("heading", "Last 5 Runs");
+                    long size = (long) last5SuiteRuns.get("size");
+                    last5SuiteRuns.remove("size");
+                    temp.put("Last 5 Runs", ReportUtils.createCustomObject(last5SuiteRuns, "chart", size, "center",
+                            stackedBarChartType));
+                } else {
+                    temp.put("Last 5 Runs",
+                            ReportUtils.createCustomObject("-", "text", "-", "left"));
+                }
+                temp.put("Report Name",
+                        ReportUtils.createCustomObject(StringUtils.capitalize(reportName), "text", reportName,
+                                "left"));
+                temp.put("Project Name",
+                        ReportUtils.createCustomObject(
+                                StringUtils.capitalize(getAllSuites.get(0).getProject_name()), "text",
+                                getAllSuites.get(0).getProject_name(), "left"));
+                temp.put("Environment",
+                        ReportUtils.createCustomObject(StringUtils.capitalize(getAllSuites.get(0).getEnv()), "text",
+                                getAllSuites.get(0).getEnv(), "left"));
+                Map<String, Object> doughnutSubType = new HashMap<>();
+                doughnutSubType.put("subType", "doughnut_chart");
+                doughnutSubType.put("heading", "Total Suite(s)");
+                temp.put("Suite Summary",
+                        ReportUtils.createCustomObject(ReportUtils.createDoughnutChart(statusMap), "chart",
+                                totalCount, "center", doughnutSubType));
+                temp.put("Stability Index",
+                        ReportUtils.createCustomObject(stablityIndex + "%", "text", stablityIndex, "center"));
+                temp.put("Average Fix Time",
+                        ReportUtils.createCustomObject(averageFixTimeStr, "text", averageFixTimeStr, "center"));
+                if (culprit != null) {
+                    String averagePercentage = culprit.get("average") + "%";
+                    culprit.remove("average");
+                    temp.put("Analysis",
+                            ReportUtils.createCustomObject(culprit, "tabs", averagePercentage, "left"));
+                } else {
+                    temp.put("Analysis",
+                            ReportUtils.createCustomObject("-", "text", "-", "left"));
+                }
+                temp.put("App Stability Score",
+                        ReportUtils.createCustomObject(devscore, "score", devscore, "center"));
+                temp.put("Automation Stability Score",
+                        ReportUtils.createCustomObject(qascore, "score", qascore, "center"));
+                temp.put("P ID", ReportUtils.createCustomObject(getAllSuites.get(0).getP_id(), "text",
+                        getAllSuites.get(0).getP_id(), "center"));
+                data.add(temp);
+            }
+        }
+        result.put("data", data);
+        result.put("totalElements", count);
+        if (errors != null) {
+            result.put("errors", errors);
+        }
+
+        return new Response(result, count + " Records found", SUCCESS);
+    }
     private Response createSuiteDiagnoseReport(RuleApi payload, Integer pageNo, Object errors) throws ParseException {
 
         Map<String, Object> result = new HashMap<>();
@@ -129,15 +472,15 @@ public class RuleService {
         envs.replaceAll(String::toLowerCase);
 
         if (pageNo != null && pageNo <= 0) {
-                log.error("Error occurred due to records not found");
-                throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
 
         List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, starttime, endtime, pageNo);
         long count = reportNames.size();
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
         count = 0;
         for (String reportName : reportNames) {
@@ -234,343 +577,7 @@ public class RuleService {
         }
         result.put("totalElements", count);
 
-        return new Response(result, count + " Records found", Success);
-    }
-
-    private Response createSuiteSummaryReport(RuleApi payload, Integer pageNo, Integer sort,
-                                              String sortedColumn, Object errors) throws ParseException {
-
-        Map<String, Object> result = new HashMap<>();
-        List<Object> headers = new ArrayList<>();
-        List<Map<String, Object>> data = new ArrayList<>();
-        Collections.addAll(headers, "Project Name", "Report Name", "Environment", "Suite Summary", "Last 5 Runs",
-                "Stability Index",
-                "Average Fix Time", "App Stability Score", "Automation Stability Score", "Analysis");
-        result.put("headers", headers);
-
-        long starttime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
-        long endtime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
-                + (1000 * 60 * 60 * 24);
-        List<String> projects = payload.getProject();
-        projects.replaceAll(String::toLowerCase);
-        List<String> envs = payload.getEnv();
-        envs.replaceAll(String::toLowerCase);
-        List<Long> p_ids = payload.getProjectid();
-
-
-        if (pageNo != null && pageNo <= 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
-        }
-
-        List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, starttime, endtime, pageNo);
-        long count = reportNames.size();
-        if (count == 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
-        }
-        count = 0;
-        for (String reportName : reportNames) {
-            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(reportName, p_ids, projects, starttime,
-                    endtime, envs);
-            count = count + suiteMap.size();
-            for (Map.Entry<String, List<SuiteExeDto>> entry : suiteMap.entrySet()) {
-                if (entry.getValue().size() == 0) {
-                    continue;
-                }
-                List<SuiteExeDto> getAllSuites = entry.getValue();
-                Map<String, Long> statusMap = new HashMap<>();
-                for (StatusColor statusColor : StatusColor.values()) {
-                    statusMap.put(statusColor.toString(), 0L);
-                }
-                long totalCount = 0L;
-                for (SuiteExeDto suiteExeDto : getAllSuites) {
-                    if (suiteExeDto.getStatus().toUpperCase().equals(PASS.toString())) {
-                        long value = statusMap.get(PASS.toString()) + 1;
-                        statusMap.put(PASS.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (suiteExeDto.getStatus().toUpperCase().equals(FAIL.toString())) {
-                        long value = statusMap.get(FAIL.toString()) + 1;
-                        statusMap.put(FAIL.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (suiteExeDto.getStatus().toUpperCase().equals(EXE.toString())) {
-                        long value = statusMap.get(EXE.toString()) + 1;
-                        statusMap.put(EXE.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (suiteExeDto.getStatus().toUpperCase().equals(ERR.toString())) {
-                        long value = statusMap.get(ERR.toString()) + 1;
-                        statusMap.put(ERR.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (suiteExeDto.getStatus().toUpperCase().equals(INFO.toString())) {
-                        long value = statusMap.get(INFO.toString()) + 1;
-                        statusMap.put(INFO.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (suiteExeDto.getStatus().toUpperCase().equals(WARN.toString())) {
-                        long value = statusMap.get(WARN.toString()) + 1;
-                        statusMap.put(WARN.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                }
-                String env = getAllSuites.get(0).getEnv();
-                List<SuiteExeDto> sortedList = ReportUtils.getSortedListForSuiteExe(getAllSuites);
-                double brokenIndex = ReportUtils.brokenIndexForSuiteExe(getAllSuites);
-                int stablityIndex = ReportUtils.stabilityIndex(brokenIndex);
-                long averageFixTime = ReportUtils.averageFixTimeForSuiteExe(getAllSuites);
-                long downTime = ReportUtils.getDownTimeForSuiteExe(sortedList);
-                Map<String, Object> last5SuiteRuns = ReportUtils.last5SuiteRuns(getAllSuites);
-                Map<String, Long> culprit = ReportUtils.culprit(getAllSuites);
-
-                double devscore = ReportUtils.getScore(brokenIndex, downTime, averageFixTime, env, getAllSuites);
-                double qascore = ReportUtils.getQAScore(getAllSuites);
-                String averageFixTimeStr;
-                if (brokenIndex == 1) {
-                    averageFixTimeStr = "Never Fixed";
-                } else {
-                    averageFixTimeStr = ReportUtils.convertLongToTime(averageFixTime);
-                }
-                Map<String, Object> temp = new HashMap<>();
-                if (last5SuiteRuns != null) {
-                    Map<String, Object> stackedBarChartType = new HashMap<>();
-                    stackedBarChartType.put("subType", "stacked_bar_chart");
-                    stackedBarChartType.put("heading", "Last 5 Runs");
-                    long size = (long) last5SuiteRuns.get("size");
-                    last5SuiteRuns.remove("size");
-                    temp.put("Last 5 Runs", ReportUtils.createCustomObject(last5SuiteRuns, "chart", size, "center",
-                            stackedBarChartType));
-                } else {
-                    temp.put("Last 5 Runs",
-                            ReportUtils.createCustomObject("-", "text", "-", "left"));
-                }
-                temp.put("Report Name",
-                        ReportUtils.createCustomObject(StringUtils.capitalize(reportName), "text", reportName,
-                                "left"));
-                temp.put("Project Name",
-                        ReportUtils.createCustomObject(
-                                StringUtils.capitalize(getAllSuites.get(0).getProject_name()), "text",
-                                getAllSuites.get(0).getProject_name(), "left"));
-                temp.put("Environment",
-                        ReportUtils.createCustomObject(StringUtils.capitalize(getAllSuites.get(0).getEnv()), "text",
-                                getAllSuites.get(0).getEnv(), "left"));
-                Map<String, Object> doughnutSubType = new HashMap<>();
-                doughnutSubType.put("subType", "doughnut_chart");
-                doughnutSubType.put("heading", "Total Suite(s)");
-                temp.put("Suite Summary",
-                        ReportUtils.createCustomObject(ReportUtils.createDoughnutChart(statusMap), "chart",
-                                totalCount, "center", doughnutSubType));
-                temp.put("Stability Index",
-                        ReportUtils.createCustomObject(stablityIndex + "%", "text", stablityIndex, "center"));
-                temp.put("Average Fix Time",
-                        ReportUtils.createCustomObject(averageFixTimeStr, "text", averageFixTimeStr, "center"));
-                if (culprit != null) {
-                    String averagePercentage = culprit.get("average") + "%";
-                    culprit.remove("average");
-                    temp.put("Analysis",
-                            ReportUtils.createCustomObject(culprit, "tabs", averagePercentage, "left"));
-                } else {
-                    temp.put("Analysis",
-                            ReportUtils.createCustomObject("-", "text", "-", "left"));
-                }
-                temp.put("App Stability Score",
-                        ReportUtils.createCustomObject(devscore, "score", devscore, "center"));
-                temp.put("Automation Stability Score",
-                        ReportUtils.createCustomObject(qascore, "score", qascore, "center"));
-                temp.put("P ID", ReportUtils.createCustomObject(getAllSuites.get(0).getP_id(), "text",
-                        getAllSuites.get(0).getP_id(), "center"));
-                data.add(temp);
-            }
-        }
-        result.put("data", data);
-        result.put("totalElements", count);
-        if (errors != null) {
-            result.put("errors", errors);
-        }
-
-        return new Response(result, count + " Records found", Success);
-    }
-
-    private Response createSuiteRunReport(RuleApi payload, Integer pageNo,
-                                          Integer sort, String sortedColumn, Object errors) throws ParseException {
-
-        Map<String, String> suiteRunColumnName = ReportUtils.getSuiteColumnName();
-        Map<String, Object> result = new HashMap<>();
-        List<Object> headers = new ArrayList<>();
-        Collections.addAll(headers, "Project Name", "Report Name", "Environment", "Status", "Executed By", "Action",
-                "Duration", "Testcase Summary");
-        result.put("headers", headers);
-        List<Map<String, Object>> data = new ArrayList<>();
-        long starttime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
-        long endtime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
-                + (1000 * 60 * 60 * 24);
-//        Query query = new Query();
-//        List<Criteria> criteria = new ArrayList<>();
-        List<String> projects = payload.getProject();
-        projects.replaceAll(String::toLowerCase);
-        List<String> envs = payload.getEnv();
-        List<Long> p_ids = payload.getProjectid();
-        envs.replaceAll(String::toLowerCase);
-//        criteria.add(Criteria.where("p_id").in(p_ids));
-//        criteria.add(Criteria.where("env").in(envs));
-//        criteria.add(Criteria.where("s_start_time").gte(starttime));
-
-
-//        criteria.add(Criteria.where("s_end_time").lte(endtime));
-//        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
-        long count = RestApiUtils.getSuiteExeCount(p_ids, envs, starttime, endtime);
-        if (count == 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
-        }
-        if (pageNo != null && pageNo <= 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
-        }
-//        Pageable pageable;
-//        if (pageNo != null) {
-//            pageable = PageRequest.of(pageNo - 1, 8);
-//            query.with(pageable);
-//        }
-//        if (sort != null && sort != 0 && sortedColumn != null) {
-//            Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-//                    suiteRunColumnName.get(sortedColumn.toLowerCase()));
-//            query.with(Sort.by(order));
-//            query.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-//        }
-
-        List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExes(p_ids, envs, starttime, endtime, pageNo, sort, sortedColumn);
-        if (suiteReports.isEmpty()) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NUMBER_IS_ABOVE_TOTAL_PAGES, null, Failure, HttpStatus.OK);
-        }
-        List<String> sRunIds = RestApiUtils.getS_Run_Ids(p_ids, envs, starttime, endtime, pageNo, sort, sortedColumn);
-//        Query query1 = new Query(Criteria.where("s_run_id").in(sRunIds));
-        List<TestExeDto> testExeDtoList = RestApiUtils.getTestExeListForS_run_ids(sRunIds);
-
-        for (SuiteExeDto suites : suiteReports) {
-            Map<String, Object> temp = new HashMap<>();
-            Map<String, Long> statusMap = new HashMap<>();
-            Set<String> users = new HashSet<>();
-            if (!testExeDtoList.isEmpty()) {
-                long totalCount = 0L;
-                for (TestExeDto testExeDto : testExeDtoList) {
-                    if (!testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        continue;
-                    }
-                    if (testExeDto.getInvoke_user() != null) users.add(testExeDto.getInvoke_user());
-
-                    if (testExeDto.getStatus().toUpperCase().equals(PASS.toString())
-                            && testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        long value = statusMap.get(PASS.toString()) + 1;
-                        statusMap.put(PASS.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (testExeDto.getStatus().toUpperCase().equals(FAIL.toString())
-                            && testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        long value = statusMap.get(FAIL.toString()) + 1;
-                        statusMap.put(FAIL.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (testExeDto.getStatus().toUpperCase().equals(EXE.toString())
-                            && testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        long value = statusMap.get(EXE.toString()) + 1;
-                        statusMap.put(EXE.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (testExeDto.getStatus().toUpperCase().equals(ERR.toString())
-                            && testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        long value = statusMap.get(ERR.toString()) + 1;
-                        statusMap.put(ERR.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (testExeDto.getStatus().toUpperCase().equals(INFO.toString())
-                            && testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        long value = statusMap.get(INFO.toString()) + 1;
-                        statusMap.put(INFO.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-                    if (testExeDto.getStatus().toUpperCase().equals(WARN.toString())
-                            && testExeDto.getS_run_id().equals(suites.getS_run_id())) {
-                        long value = statusMap.get(WARN.toString()) + 1;
-                        statusMap.put(WARN.toString(), value);
-                        totalCount++;
-                        continue;
-                    }
-
-                }
-                if (totalCount > 0) {
-                    Map<String, Object> doughnutSubType = new HashMap<>();
-                    doughnutSubType.put("subType", "doughnut_chart");
-                    doughnutSubType.put("heading", "Total Testcase(s)");
-                    temp.put("Testcase Summary",
-                            ReportUtils.createCustomObject(ReportUtils.createDoughnutChart(statusMap),
-                                    "chart", totalCount, "center", doughnutSubType));
-                }
-            }
-
-            Map<String, Object> actionreport = new HashMap<>();
-            actionreport.put("subType", "execution_report");
-            temp.put("Action",
-                    ReportUtils.createCustomObject(suites.getS_run_id(), "action", suites.getS_run_id(), "center",
-                            actionreport));
-            temp.put("Report Name",
-                    ReportUtils.createCustomObject(suites.getReport_name(), "text", suites.getReport_name(),
-                            "left"));
-            temp.put("Project Name",
-                    ReportUtils.createCustomObject(StringUtils.capitalize(suites.getProject_name()), "text",
-                            suites.getProject_name(),
-                            "left"));
-            temp.put("Environment",
-                    ReportUtils.createCustomObject(StringUtils.capitalize(suites.getEnv()), "text", suites.getEnv(),
-                            "left"));
-            if (!users.isEmpty()) {
-                temp.put("Executed By", ReportUtils.createCustomObject(users,
-                        "pills", users, "left"));
-            } else {
-                temp.put("Executed By", ReportUtils.createCustomObject("-",
-                        "text", "-", "center"));
-            }
-            temp.put("Status",
-                    ReportUtils.createCustomObject(suites.getStatus(), "status", suites.getStatus(), "center"));
-
-            if (suites.getS_end_time() != 0) {
-                Map<String, Object> subtype = new HashMap<String, Object>();
-                subtype.put("subType", "duration");
-                Map<String, Object> values = new HashMap<String, Object>();
-                values.put("start_time", suites.getS_start_time());
-                values.put("end_time", suites.getS_end_time());
-                temp.put("Duration",
-                        ReportUtils.createCustomObject(values, "date",
-                                ((float) (suites.getS_end_time() - suites.getS_start_time())),
-                                "center", subtype));
-            } else {
-                temp.put("Duration", ReportUtils.createCustomObject("-", "text", suites.getS_end_time(), "center"));
-            }
-            data.add(temp);
-        }
-
-        Collections.reverse(data);
-
-        result.put("data", data);
-        result.put("totalElements", count);
-        if (errors != null) {
-            result.put("errors", errors);
-        }
-        return new Response(result, count + " Records found", Success);
+        return new Response(result, count + " Records found", SUCCESS);
     }
 
     private Response createTestCaseRunReport(RuleApi payload, Integer pageNo, Integer sort,
@@ -584,7 +591,7 @@ public class RuleService {
         result.put("headers", headers);
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
         Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
                 sortedColumn);
@@ -592,7 +599,7 @@ public class RuleService {
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
         for (BasicDBObject testExeDto : results) {
             List<Document> ob = (List<Document>) testExeDto.get("result");
@@ -647,109 +654,7 @@ public class RuleService {
             result.put("errors", errors);
         }
         result.put("totalElements", count);
-        return new Response(result, count + " Records found", Success);
-    }
-
-    private Response createTestCaseDiagnoseReport(RuleApi payload, Integer pageNo, Integer sort,
-                                                  String sortedColumn, Object errors) throws ParseException {
-
-        Map<String, Object> result = new HashMap<String, Object>();
-        List<Object> headers = new ArrayList<Object>();
-        List<Map<String, Object>> data = new ArrayList<Map<String, Object>>();
-        Collections.addAll(headers, "Project Name", "TestCase Name", "Environment", "Report Name", "Last Run Status",
-                "Failing Since", "Broken Index", "Downtime", "Average Fix Time", "Last Pass");
-        result.put("headers", headers);
-        if (pageNo != null && pageNo <= 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
-        }
-        Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
-                sortedColumn);
-        long count = (long) resultMap.get("count");
-        List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
-        if (count == 0) {
-            log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
-        }
-        Map<String, List<TestExeCommonDto>> listMap = new HashMap<>();
-        for (BasicDBObject testExeDto : results) {
-            List<Document> ob = (List<Document>) testExeDto.get("result");
-            Document suiteExeDto = ob.get(0);
-            TestExeCommonDto testExeDtoDiagnose = ReportUtils.getTestExeCommonByBasicObjectAndDocument(testExeDto,
-                    suiteExeDto);
-            String key = testExeDtoDiagnose.getName() + ":" + testExeDtoDiagnose.getReport_name() + ":"
-                    + testExeDtoDiagnose.getEnv() + ":" + testExeDtoDiagnose.getProject_name();
-            List<TestExeCommonDto> list = listMap.getOrDefault(key, null);
-            if (list == null) {
-                List<TestExeCommonDto> testExeDtoDiagnoseList = new ArrayList<>();
-                testExeDtoDiagnoseList.add(testExeDtoDiagnose);
-                listMap.put(key, testExeDtoDiagnoseList);
-            } else {
-                list.add(testExeDtoDiagnose);
-                listMap.put(key, list);
-            }
-        }
-
-        for (Map.Entry<String, List<TestExeCommonDto>> entry : listMap.entrySet()) {
-            List<TestExeCommonDto> testExeCommonDtoDiagnoseList = entry.getValue();
-            List<TestExeCommonDto> sortedList = ReportUtils.getSortedListForTestExeCommon(testExeCommonDtoDiagnoseList);
-            double brokenIndex = ReportUtils.brokenIndexForTestExe(testExeCommonDtoDiagnoseList);
-            String failingSince = ReportUtils.getFailingSinceForTestExeCommon(sortedList, brokenIndex);
-            String lastRunStatus = ReportUtils.lastRunStatusForTestExeCommon(sortedList);
-            Long lastPass = ReportUtils.getLastPassForTestExeCommon(sortedList);
-            String downTime = ReportUtils.getDownTimeForTestExeCommon(sortedList);
-            String averageFixTime;
-            if (brokenIndex == 1) {
-                averageFixTime = "Never Fixed";
-            } else if (brokenIndex == 0) {
-                averageFixTime = "Never Broken";
-            } else {
-                averageFixTime = ReportUtils.averageFixTimeForTestExeCommon(testExeCommonDtoDiagnoseList);
-            }
-            Map<String, Object> temp = new HashMap<>();
-            temp.put("TestCase Name",
-                    ReportUtils.createCustomObject(testExeCommonDtoDiagnoseList.get(0).getName(), "text",
-                            testExeCommonDtoDiagnoseList.get(0).getName(), "left"));
-            temp.put("Report Name",
-                    ReportUtils.createCustomObject(
-                            StringUtils.capitalize(testExeCommonDtoDiagnoseList.get(0).getReport_name()), "text",
-                            testExeCommonDtoDiagnoseList.get(0).getReport_name(), "left"));
-            temp.put("Project Name",
-                    ReportUtils.createCustomObject(
-                            StringUtils.capitalize(testExeCommonDtoDiagnoseList.get(0).getProject_name()), "text",
-                            testExeCommonDtoDiagnoseList.get(0).getProject_name(), "left"));
-            temp.put("Environment",
-                    ReportUtils.createCustomObject(StringUtils.capitalize(testExeCommonDtoDiagnoseList.get(0).getEnv()),
-                            "text",
-                            testExeCommonDtoDiagnoseList.get(0).getEnv(), "left"));
-            temp.put("Broken Index", ReportUtils.createCustomObject(brokenIndex, "text", brokenIndex, "center"));
-            temp.put("Average Fix Time",
-                    ReportUtils.createCustomObject(averageFixTime, "text", averageFixTime, "center"));
-            temp.put("Last Run Status",
-                    ReportUtils.createCustomObject(lastRunStatus, "status", lastRunStatus, "center"));
-            temp.put("P ID",
-                    ReportUtils.createCustomObject(testExeCommonDtoDiagnoseList.get(0).getP_id(), "text",
-                            testExeCommonDtoDiagnoseList.get(0).getP_id(), "left"));
-            if (lastPass > 0) {
-                Map<String, Object> timereport = new HashMap<>();
-                timereport.put("subType", "datetime");
-                temp.put("Last Pass",
-                        ReportUtils.createCustomObject(lastPass, "date", lastPass, "center", timereport));
-            } else {
-                temp.put("Last Pass", ReportUtils.createCustomObject("-", "text", "-", "center"));
-            }
-            temp.put("Failing Since", ReportUtils.createCustomObject(failingSince, "text", failingSince, "center"));
-            temp.put("Downtime", ReportUtils.createCustomObject(downTime, "text", downTime, "center"));
-            data.add(temp);
-        }
-
-        result.put("data", data);
-        if (errors != null) {
-            result.put("errors", errors);
-        }
-        result.put("totalElements", listMap.size());
-
-        return new Response(result, listMap.size() + " Records found", Success);
+        return new Response(result, count + " Records found", SUCCESS);
     }
 
     private Response createTestCaseSummaryReport(RuleApi payload, Integer pageNo, Integer sort,
@@ -763,7 +668,7 @@ public class RuleService {
         result.put("headers", headers);
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
         Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
                 sortedColumn);
@@ -771,7 +676,7 @@ public class RuleService {
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
         Map<String, List<TestExeCommonDto>> listMap = new HashMap<>();
         for (BasicDBObject testExeDto : results) {
@@ -869,24 +774,125 @@ public class RuleService {
         }
         result.put("totalElements", listMap.size());
 
-        return new Response(result, listMap.size() + " Records found", Success);
+        return new Response(result, listMap.size() + " Records found", SUCCESS);
+    }
+    private Response createTestCaseDiagnoseReport(RuleApi payload, Integer pageNo, Integer sort,
+                                                  String sortedColumn, Object errors) throws ParseException {
+
+        Map<String, Object> result = new HashMap<String, Object>();
+        List<Object> headers = new ArrayList<Object>();
+        List<Map<String, Object>> data = new ArrayList<Map<String, Object>>();
+        Collections.addAll(headers, "Project Name", "TestCase Name", "Environment", "Report Name", "Last Run Status",
+                "Failing Since", "Broken Index", "Downtime", "Average Fix Time", "Last Pass");
+        result.put("headers", headers);
+        if (pageNo != null && pageNo <= 0) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+        }
+        Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
+                sortedColumn);
+        long count = (long) resultMap.get("count");
+        List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
+        if (count == 0) {
+            log.error("Error occurred due to records not found");
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+        }
+        Map<String, List<TestExeCommonDto>> listMap = new HashMap<>();
+        for (BasicDBObject testExeDto : results) {
+            List<Document> ob = (List<Document>) testExeDto.get("result");
+            Document suiteExeDto = ob.get(0);
+            TestExeCommonDto testExeDtoDiagnose = ReportUtils.getTestExeCommonByBasicObjectAndDocument(testExeDto,
+                    suiteExeDto);
+            String key = testExeDtoDiagnose.getName() + ":" + testExeDtoDiagnose.getReport_name() + ":"
+                    + testExeDtoDiagnose.getEnv() + ":" + testExeDtoDiagnose.getProject_name();
+            List<TestExeCommonDto> list = listMap.getOrDefault(key, null);
+            if (list == null) {
+                List<TestExeCommonDto> testExeDtoDiagnoseList = new ArrayList<>();
+                testExeDtoDiagnoseList.add(testExeDtoDiagnose);
+                listMap.put(key, testExeDtoDiagnoseList);
+            } else {
+                list.add(testExeDtoDiagnose);
+                listMap.put(key, list);
+            }
+        }
+
+        for (Map.Entry<String, List<TestExeCommonDto>> entry : listMap.entrySet()) {
+            List<TestExeCommonDto> testExeCommonDtoDiagnoseList = entry.getValue();
+            List<TestExeCommonDto> sortedList = ReportUtils.getSortedListForTestExeCommon(testExeCommonDtoDiagnoseList);
+            double brokenIndex = ReportUtils.brokenIndexForTestExe(testExeCommonDtoDiagnoseList);
+            String failingSince = ReportUtils.getFailingSinceForTestExeCommon(sortedList, brokenIndex);
+            String lastRunStatus = ReportUtils.lastRunStatusForTestExeCommon(sortedList);
+            Long lastPass = ReportUtils.getLastPassForTestExeCommon(sortedList);
+            String downTime = ReportUtils.getDownTimeForTestExeCommon(sortedList);
+            String averageFixTime;
+            if (brokenIndex == 1) {
+                averageFixTime = "Never Fixed";
+            } else if (brokenIndex == 0) {
+                averageFixTime = "Never Broken";
+            } else {
+                averageFixTime = ReportUtils.averageFixTimeForTestExeCommon(testExeCommonDtoDiagnoseList);
+            }
+            Map<String, Object> temp = new HashMap<>();
+            temp.put("TestCase Name",
+                    ReportUtils.createCustomObject(testExeCommonDtoDiagnoseList.get(0).getName(), "text",
+                            testExeCommonDtoDiagnoseList.get(0).getName(), "left"));
+            temp.put("Report Name",
+                    ReportUtils.createCustomObject(
+                            StringUtils.capitalize(testExeCommonDtoDiagnoseList.get(0).getReport_name()), "text",
+                            testExeCommonDtoDiagnoseList.get(0).getReport_name(), "left"));
+            temp.put("Project Name",
+                    ReportUtils.createCustomObject(
+                            StringUtils.capitalize(testExeCommonDtoDiagnoseList.get(0).getProject_name()), "text",
+                            testExeCommonDtoDiagnoseList.get(0).getProject_name(), "left"));
+            temp.put("Environment",
+                    ReportUtils.createCustomObject(StringUtils.capitalize(testExeCommonDtoDiagnoseList.get(0).getEnv()),
+                            "text",
+                            testExeCommonDtoDiagnoseList.get(0).getEnv(), "left"));
+            temp.put("Broken Index", ReportUtils.createCustomObject(brokenIndex, "text", brokenIndex, "center"));
+            temp.put("Average Fix Time",
+                    ReportUtils.createCustomObject(averageFixTime, "text", averageFixTime, "center"));
+            temp.put("Last Run Status",
+                    ReportUtils.createCustomObject(lastRunStatus, "status", lastRunStatus, "center"));
+            temp.put("P ID",
+                    ReportUtils.createCustomObject(testExeCommonDtoDiagnoseList.get(0).getP_id(), "text",
+                            testExeCommonDtoDiagnoseList.get(0).getP_id(), "left"));
+            if (lastPass > 0) {
+                Map<String, Object> timereport = new HashMap<>();
+                timereport.put("subType", "datetime");
+                temp.put("Last Pass",
+                        ReportUtils.createCustomObject(lastPass, "date", lastPass, "center", timereport));
+            } else {
+                temp.put("Last Pass", ReportUtils.createCustomObject("-", "text", "-", "center"));
+            }
+            temp.put("Failing Since", ReportUtils.createCustomObject(failingSince, "text", failingSince, "center"));
+            temp.put("Downtime", ReportUtils.createCustomObject(downTime, "text", downTime, "center"));
+            data.add(temp);
+        }
+
+        result.put("data", data);
+        if (errors != null) {
+            result.put("errors", errors);
+        }
+        result.put("totalElements", listMap.size());
+
+        return new Response(result, listMap.size() + " Records found", SUCCESS);
     }
 
     public Response getRuleActionReportV3(String s_run_id, String tc_run_id, HttpServletRequest request, Integer pageNo, Integer sort, String sortedColumn) {
         if (tc_run_id == null) {
-            Map<String, String> testcaseColumnName = ReportUtils.getTestcaseColumnName();
+
             if ((sort != null && sortedColumn == null) || (sort == null && sortedColumn != null)) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, Failure, HttpStatus.OK);
+                throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, FAILURE, HttpStatus.OK);
             }
             if (sort != null && sort != -1 && sort != 0 && sort != 1) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(INVALID_SORT_VALUE, null, Failure, HttpStatus.OK);
+                throw new CustomDataException(INVALID_SORT_VALUE, null, FAILURE, HttpStatus.OK);
             }
 
             if (pageNo != null && pageNo <= 0) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
+                throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -894,9 +900,9 @@ public class RuleService {
 
             if (getSuite == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
             }
-//            Query varianceQuery = new Query(Criteria.where("varianceId").in(getSuite.getVarianceIds()).and("varianceStatus").is(ACTIVE_STATUS).and("endDate").gt(new Date().getTime()));
+
             List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
             Map<Long, VarianceClassificationDto> varianceList = new HashMap<>();
             List<Long> varinaceIds = new ArrayList<>();
@@ -910,54 +916,32 @@ public class RuleService {
             ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
             if (project == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
             }
             if (!ReportUtils.validateRoleWithViewerAccess(user1, project)) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
             }
             if (getSuite.getStatus().equalsIgnoreCase("EXE")) {
                 String expectedStatus = "PASS";
                 int current_priority = Integer.MAX_VALUE;
                 result.put("status", getSuite.getStatus());
-//                response.setData(result);
-                Map<String, Object> testcaseDetails = new HashMap<String, Object>();
+
+                Map<String, Object> testcaseDetails = new HashMap<>();
                 Map<String, List<Map<String, Object>>> statusFilterMap = new HashMap<>();
 
-                List<Map<String, Object>> testcaseDetailsdata = new ArrayList<Map<String, Object>>();
+                List<Map<String, Object>> testcaseDetailsdata = new ArrayList<>();
                 Set<String> testcaseDetailsHeaders = new LinkedHashSet<>();
 
-                Pageable pageable;
-                Query queryTestcase = new Query();
-                queryTestcase.addCriteria(Criteria.where("s_run_id").is(s_run_id));
                 if (pageNo != null && pageNo <= 0) {
                     log.error("Error occurred due to records not found");
-                    throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
-                }
-                if (pageNo != null && pageNo > 0) {
-                    pageable = PageRequest.of(pageNo - 1, 8);
-                    queryTestcase.with(pageable);
-                }
-
-                if (sort != null && sort != 0 && sortedColumn != null) {
-                    if (testcaseColumnName.keySet().contains(sortedColumn.toLowerCase())) {
-                        Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                                testcaseColumnName.get(sortedColumn.toLowerCase()));
-                        queryTestcase.with(Sort.by(order));
-                        queryTestcase.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-                    } else {
-                        Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                                "user_defined_data." + sortedColumn);
-                        queryTestcase.with(Sort.by(order));
-                        queryTestcase.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-
-                    }
+                    throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
                 }
 
 
                 Map<String, Object> statusSubType = new HashMap<>();
                 statusSubType.put("subType", "falseVariance");
-                List<TestExeDto> tempTest = mongoOperations.find(queryTestcase, TestExeDto.class);
+                List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
                 if (!tempTest.isEmpty()) {
                     Set<String> frameworks = new HashSet<>();
                     List<String> statuses = new ArrayList<>();
@@ -1222,7 +1206,7 @@ public class RuleService {
                     result.put("TestCase_Details", null);
                 }
 
-                return new Response(result, EXE_REPORT_SUCCESSFULLY_FETCHED, Success);
+                return new Response(result, EXE_REPORT_SUCCESSFULLY_FETCHED, SUCCESS);
             } else {
                 Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
                 if (last5RunsBarGraph != null) {
@@ -1232,46 +1216,25 @@ public class RuleService {
                 List<Map<String, Object>> testcaseDetailsdata = new ArrayList<>();
                 Map<String, List<Map<String, Object>>> statusFilterMap = new HashMap<>();
                 Set<String> testcaseDetailsHeaders = new LinkedHashSet<>();
-                Pageable pageable = null;
-                Query queryTestcase = new Query();
-                queryTestcase.addCriteria(Criteria.where("s_run_id").is(s_run_id));
+
                 if (getSuite.getTestcase_details() == null) {
                     log.error("Error occurred due to records not found");
-                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
+                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
                 }
                 long count = getSuite.getTestcase_details().size();
                 if (count == 0) {
                     log.error("Error occurred due to records not found");
-                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, Failure, HttpStatus.OK);
+                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, FAILURE, HttpStatus.OK);
                 }
                 if (pageNo != null && pageNo <= 0) {
                     log.error("Error occurred due to records not found");
-                    throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
-                }
-                if (pageNo != null && pageNo > 0) {
-                    pageable = PageRequest.of(pageNo - 1, 8);
-                    queryTestcase.with(pageable);
+                    throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
                 }
 
-                if (sort != null && sort != 0 && sortedColumn != null) {
-                    if (testcaseColumnName.keySet().contains(sortedColumn.toLowerCase())) {
-                        Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                                testcaseColumnName.get(sortedColumn.toLowerCase()));
-                        queryTestcase.with(Sort.by(order));
-                        queryTestcase.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-                    } else {
-                        Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                                "user_defined_data." + sortedColumn);
-                        queryTestcase.with(Sort.by(order));
-                        queryTestcase.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-
-                    }
-                }
-
-                List<TestExeDto> tempTest = mongoOperations.find(queryTestcase, TestExeDto.class);
+                List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
                 if (tempTest.isEmpty()) {
                     log.error("Error occurred due to records not found");
-                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
+                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
                 }
 
                 Set<String> frameworks = new HashSet<>();
@@ -1474,7 +1437,7 @@ public class RuleService {
                     result.put("TestCase_Details", testcaseDetails);
                     result.put("totalElements", getSuite.getTestcase_details().size());
 
-                    return new Response(result, DATA_FETCHED_SUCCESSFULLY, Success);
+                    return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
                 }
                 List<String> data = new ArrayList<String>();
                 data.addAll((Set<String>) testcaseDetails.get("headers"));
@@ -1482,50 +1445,44 @@ public class RuleService {
                 result.put("TestCase_Details", testcaseDetails);
                 result.put("totalElements", getSuite.getTestcase_details().size());
 
-                return new Response(result, DATA_FETCHED_SUCCESSFULLY, Success);
+                return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
             }
 
         } else {
             ObjectMapper oMapper = new ObjectMapper();
-//            Query queryTestcase = new Query();
-            Map<String, Object> stepData = new HashMap<String, Object>();
-            Set<String> stepsListHeaders = new HashSet<String>();
-            List<Map<String, Object>> stepsVariableValue = new ArrayList<Map<String, Object>>();
-//            queryTestcase.addCriteria(Criteria.where("tc_run_id").is(tc_run_id));
+            Map<String, Object> stepData = new HashMap<>();
+            Set<String> stepsListHeaders = new HashSet<>();
+            List<Map<String, Object>> stepsVariableValue = new ArrayList<>();
 
             TestExeDto tempTest = RestApiUtils.getTestExe(tc_run_id);
             if (tempTest == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
+                throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
             }
 
             String username = ReportUtils.getUserDtoFromServetRequest().getUsername();
-//            Query checkProjectRole = new Query();
-//            List<Criteria> criteria = new ArrayList<>();
 
             UserDto user = ReportUtils.getUserDtoFromServetRequest();
 
             SuiteExeDto getSuite = RestApiUtils.getSuiteExe(tempTest.getS_run_id());
             if (getSuite == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
             }
             ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
 
             if (project == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
             }
-//            criteria.add(Criteria.where("pid").in(getSuite.getP_id()));
-//            criteria.add(Criteria.where("username").is(username));
-//            checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+
             ProjectRoleDto currentProject = RestApiUtils.getProjectRoleByPidAndUsername(getSuite.getP_id(), username);
 
             if (currentProject == null && !((user.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
             }
-//            Query varianceQuery = new Query(Criteria.where("varianceId").in(getSuite.getVarianceIds()).and("varianceStatus").is(ACTIVE_STATUS).and("endDate").gt(new Date().getTime()));
+
             List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
             Map<Long, VarianceClassificationDto> variannceList = new HashMap<>();
             List<Long> varinaceIds = new ArrayList<>();
@@ -1558,7 +1515,6 @@ public class RuleService {
             Map<String, Object> statusSubType = new HashMap<>();
             statusSubType.put("subType", "falseVariance");
             List<Map<String, Object>> gallery = new ArrayList<>();
-//            StepsDto steps = mongoOperations.findOne(queryTestcase, StepsDto.class);
             StepsDto steps = RestApiUtils.getSteps(tc_run_id);
             if (steps != null) {
                 List<String> statuesList = new ArrayList<>();
@@ -1772,12 +1728,12 @@ public class RuleService {
             stepData.put("data", stepsVariableValue);
             stepData.put("tc_run_id", tc_run_id);
 
-            return new Response(stepData, "", Success);
+            return new Response(stepData, "", SUCCESS);
 
         }
     }
 
-    public Response updateBuildDetails(String s_run_id, String buildId, String sprint_name){
+    public Response updateBuildDetails(String s_run_id, String buildId, String sprint_name) {
 
         UserDto user = ReportUtils.getUserDtoFromServetRequest();
         ProjectDto project;
@@ -1791,7 +1747,7 @@ public class RuleService {
         }
         if (project == null && !user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString())) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         }
 
         ProjectRoleDto projectRole = RestApiUtils.getProjectRoleEntity(project.getPid(), user.getUsername(), ACTIVE_STATUS);
@@ -1802,10 +1758,10 @@ public class RuleService {
                         || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
 
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         } else if (projectRole != null && !projectRole.getRole().equalsIgnoreCase("ADMIN")) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         } else {
 
             if (buildId != null || sprint_name != null) {
@@ -1819,14 +1775,14 @@ public class RuleService {
                 }
             } else {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, Failure, HttpStatus.BAD_REQUEST);
+                throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, FAILURE, HttpStatus.BAD_REQUEST);
             }
             RestApiUtils.updateSuiteExe(s_run_id, suiteExeDto);
             Map<String, Object> messageMap = new HashMap<>();
             messageMap.put(s_run_id, "Updated");
             simpMessagingTemplate.convertAndSendToUser(String.valueOf(project.getPid()), "/private", messageMap);
 
-            return new Response(null, REPORT_UPDATED_SUCCESSFULLY, Success);
+            return new Response(null, REPORT_UPDATED_SUCCESSFULLY, SUCCESS);
         }
     }
 
@@ -1844,16 +1800,9 @@ public class RuleService {
         }
         if (project == null && !user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString())) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         }
 
-//        List<Criteria> criteria = new ArrayList<>();
-//        ProjectRoleDto projectRole = null;
-//        criteria.add(Criteria.where("pid").is(project.getPid()));
-//        criteria.add(Criteria.where("username").is(user.getUsername()));
-//        criteria.add(Criteria.where("status").is(ACTIVE_STATUS));
-//        Query checkProjectRole = new Query();
-//        checkProjectRole.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
         ProjectRoleDto projectRole = RestApiUtils.getProjectRoleEntity(project.getPid(), user.getUsername(), ACTIVE_STATUS);
 
         if (projectRole == null &&
@@ -1861,16 +1810,16 @@ public class RuleService {
                         && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany()))
                         || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         } else if (projectRole != null && !projectRole.getRole().equalsIgnoreCase("ADMIN")) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         } else {
             Map<String, Object> data = new HashMap<>();
             data.put("Build ID", suiteExeDto.getBuild_id());
             data.put("Sprint Name", suiteExeDto.getSprint_name());
 
-            return new Response(data, DETAILS_FETCHED_SUCCESSFULLY, Success);
+            return new Response(data, DETAILS_FETCHED_SUCCESSFULLY, SUCCESS);
         }
 
     }
@@ -1883,21 +1832,20 @@ public class RuleService {
 
         if (getSuite == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
 
         ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
         if (project == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
 
         }
         if (!ReportUtils.validateRoleWithViewerAccess(user1, project)) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
-//        Map<String, String> suiteRunColumnName = ReportUtils.getSuiteColumnName();
         Map<String, Object> result = new HashMap<>();
         List<Object> headers = new ArrayList<>();
         Collections.addAll(headers, "Start Time", "Status", "Action", "Testcases", "Run Type", "Run Mode", "Token User", "Base User");
@@ -1907,38 +1855,18 @@ public class RuleService {
         long endtime = new SimpleDateFormat("MM/dd/yyyy").parse((String) payload.get("end_time")).getTime() + (1000 * 60 * 60 * 24);
 
 
-//        Criteria criteria = Criteria.where("p_id").is(getSuite.getP_id());
-//        if (category != null && category.equalsIgnoreCase("criteria")) {
-//            criteria.and("env").is(getSuite.getEnv()).and("report_name").is(getSuite.getReport_name());
-//        }
-
-//        criteria.and("s_start_time").gte(starttime).and("s_end_time").lte(endtime);
-//        Query reportsQuery = new Query(criteria);
-//        Pageable pageable;
-
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
-//        if (pageNo != null) {
-//            pageable = PageRequest.of(pageNo - 1, 8);
-//            reportsQuery.with(pageable);
-//        }
-//        if (sort != null && sort != 0 && sortedColumn != null) {
-//            Sort.Order order = new Sort.Order(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-//                    suiteRunColumnName.get(sortedColumn.toLowerCase()));
-//            reportsQuery.with(Sort.by(order));
-//            reportsQuery.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
-//        }
 
         List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExesForSuiteTimeline(getSuite.getP_id(), category, getSuite.getEnv(), getSuite.getReport_name(), starttime, endtime, pageNo, sort, sortedColumn);
         if (suiteReports.isEmpty()) {
             result.put("data", data);
-            return new Response(result, NO_RECORDS_FOUND, Success);
+            return new Response(result, NO_RECORDS_FOUND, SUCCESS);
         }
         List<String> sRunIds = RestApiUtils.getS_Run_IdsForSuiteTimeline(getSuite.getP_id(), category, getSuite.getEnv(), getSuite.getReport_name(), starttime, endtime, pageNo, sort, sortedColumn);
-//        Query query1 = new Query(Criteria.where("s_run_id").in(sRunIds));
-//        List<TestExeDto> testcaseDetails = mongoOperations.find(query1, TestExeDto.class);
+
         List<TestExeDto> testcaseDetails = RestApiUtils.getTestExeListForS_run_ids(sRunIds);
         SuiteDto suiteData = RestApiUtils.getSuiteByReportNameAndStatus(getSuite.getReport_name(), ACTIVE_STATUS);
         if (suiteData != null) {
@@ -1976,10 +1904,10 @@ public class RuleService {
                             break;
                         case "FAIL":
                             if (testExeDto.getS_run_id().equals(suiteExeDto.getS_run_id())) {
-                            long value = Long.parseLong(statusMap.get(FAIL.toString()).toString()) + 1;
-                            statusMap.put(FAIL.toString(), value);
-                            totalCount++;
-                        }
+                                long value = Long.parseLong(statusMap.get(FAIL.toString()).toString()) + 1;
+                                statusMap.put(FAIL.toString(), value);
+                                totalCount++;
+                            }
                             break;
                         case "EXE":
                             if (testExeDto.getS_run_id().equals(suiteExeDto.getS_run_id())) {
@@ -1997,8 +1925,8 @@ public class RuleService {
                             break;
                         case "INFO":
                             if (testExeDto.getS_run_id().equals(suiteExeDto.getS_run_id())) {
-                                long value = Long.parseLong(statusMap.get(INFO.toString()).toString()) + 1;
-                                statusMap.put(INFO.toString(), value);
+                                long value = Long.parseLong(statusMap.get(StatusColor.INFO.toString()).toString()) + 1;
+                                statusMap.put(StatusColor.INFO.toString(), value);
                                 totalCount++;
                             }
                             break;
@@ -2042,7 +1970,7 @@ public class RuleService {
         Collections.reverse(data);
         result.put("data", data);
 
-        return new Response(result, data.size() + " record(s) fetched successfully", Success);
+        return new Response(result, data.size() + " record(s) fetched successfully", SUCCESS);
     }
 
     private boolean verifySearch(String search, Set<String> tokenUserSet) {
@@ -2061,17 +1989,17 @@ public class RuleService {
         SuiteExeDto getSuite = RestApiUtils.getSuiteExe(s_run_id);
         if (getSuite == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
 
         ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE.toString());
         if (project == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         }
         if (!ReportUtils.validateRoleWithViewerAccess(user, project)) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
         String azureUrl = "https://dev.azure.com/GEM-QualityEngineering/_workitems/edit/";
@@ -2124,11 +2052,11 @@ public class RuleService {
             }
         }
         if (jiraList.isEmpty() && azureList.isEmpty()) {
-            return new Response(null, NO_TICKETS_FOUND, Success);
+            return new Response(null, NO_TICKETS_FOUND, SUCCESS);
         }
         type.put("Jira", jiraList);
         type.put("Azure", azureList);
 
-        return new Response(null, TICKETS_FETCHED_SUCCESSFULLY, Success);
+        return new Response(null, TICKETS_FETCHED_SUCCESSFULLY, SUCCESS);
     }
 }

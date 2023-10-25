@@ -15,7 +15,7 @@ import javax.validation.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.jewel.reportmanager.enums.OperationType.Failure;
+import static com.jewel.reportmanager.enums.OperationType.FAILURE;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.INVALID_DATA;
 
 @Slf4j
@@ -29,48 +29,48 @@ public class GlobalExceptionHandler {
             errorMap.put(error.getField(), error.getDefaultMessage());
         });
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(errorMap, INVALID_DATA, Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(errorMap, INVALID_DATA, FAILURE));
     }
 
     @ExceptionHandler({NullPointerException.class, IllegalArgumentException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<Object> handleValidationExceptions(Exception ex) {
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, INVALID_DATA, Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, INVALID_DATA, FAILURE));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Object> requiredParamMissing(MissingServletRequestParameterException ex) {
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Missing required parameter: " + ex.getParameterName(), Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Missing required parameter: " + ex.getParameterName(), FAILURE));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Object> requiredParamInvalid(ConstraintViolationException ex) {
         String error = ex.getMessage();
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, error.split("\\.")[1], Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, error.split("\\.")[1], FAILURE));
     }
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<Object> requiredHeaderMissing(MissingRequestHeaderException ex) {
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Missing required header: " + ex.getHeaderName(), Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Missing required header: " + ex.getHeaderName(), FAILURE));
     }
 
     @ExceptionHandler(HttpClientErrorException.BadRequest.class)
     public ResponseEntity<Object> clientEntityBadRequest(HttpClientErrorException.BadRequest ex) {
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Invalid ProjectId or azure state", Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Invalid ProjectId or azure state", FAILURE));
     }
 
     @ExceptionHandler(HttpClientErrorException.Unauthorized.class)
     public ResponseEntity<Object> clientEntityUnauthorized(HttpClientErrorException.Unauthorized ex) {
         log.error("Exception occurred: {}", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Invalid email or access Token", Failure));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new Response(null, "Invalid email or access Token", FAILURE));
     }
 
     @ExceptionHandler({Exception.class})
     public ResponseEntity<Object> handleAll(final Exception ex) {
         log.error("Exception occurred. Please try again later. Debug info: ", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new Response(null, "Exception occurred. Please try again later.", Failure));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new Response(null, "Exception occurred. Please try again later.", FAILURE));
     }
 }

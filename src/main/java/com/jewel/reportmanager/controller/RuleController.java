@@ -29,7 +29,7 @@ public class RuleController {
     private ModelMapper modelMapper;
 
     @PostMapping(path = "/v1/rule", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Response> getRuleReport(@RequestBody @Valid final RuleApiDto payload, HttpServletRequest request,
+    public ResponseEntity<Response> getRuleReport(@RequestBody @Valid final RuleApiDto payload,
                                                   @RequestParam(value = "pageNo", required = false) final Integer pageNo,
                                                   @RequestParam(value = "sort", required = false) final Integer sort,
                                                   @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) throws ParseException {

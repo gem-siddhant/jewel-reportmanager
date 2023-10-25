@@ -29,7 +29,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.jewel.reportmanager.enums.OperationType.Failure;
+import static com.jewel.reportmanager.enums.OperationType.FAILURE;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
 import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.USER_DETAILS_NOT_FOUND;
@@ -81,7 +81,7 @@ public class ReportUtils {
         UserDto userDto = getUsernameAndIsDeleted(username, false);
         if (userDto == null) {
             log.error("Error occurred while trying to fetch user for username: {}", username);
-            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
         }
         log.info("User details from servlet request: {}", userDto);
         return userDto;

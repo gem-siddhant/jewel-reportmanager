@@ -804,4 +804,39 @@ public class RestApiUtils {
         }
     }
 
+    /**
+     * Returns a list of suite exes for s_run_id, page no., sort and sortedColumn.
+     *
+     * @param s_run_id
+     * @param pageNo
+     * @param sort
+     * @param sortedColumn
+     * @return List<TestExeDto>
+     */
+    public static List<TestExeDto> getTestExes(String s_run_id, Integer pageNo, Integer sort, String sortedColumn) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("s_run_id", s_run_id);
+        uriVariables.put("pageNo", pageNo);
+        uriVariables.put("sort", sort);
+        uriVariables.put("sortedColumn", sortedColumn);
+        try {
+            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/testExesList?s_run_id={s_run_id}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            gson = new Gson();
+            Type type = new TypeToken<List<TestExeDto>>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.info("Test exe list is empty for s_run_id: {} pageNo: {}, sort: {} and sortedColumn: {}", s_run_id, pageNo, sort, sortedColumn);
+            return Collections.EMPTY_LIST;
+        }
+    }
 }
