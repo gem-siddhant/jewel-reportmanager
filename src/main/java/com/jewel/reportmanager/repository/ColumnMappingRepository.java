@@ -9,8 +9,6 @@ public interface ColumnMappingRepository extends MongoRepository<ColumnMapping,L
 
   ColumnMapping findByLevelAndPidAndNameIgnoreCaseAndIsDeleted(ColumnLevel columnLevel, Long pid, String name, boolean isDeleted);
 
-  ColumnMapping findByLevelAndIsDeleted(ColumnLevel level, boolean b);
-
   ColumnMapping findByIdAndIsDeleted(Long id, boolean b);
 
   ColumnMapping findByLevelAndPidAndIsDeleted(ColumnLevel project, Long pid, boolean b);

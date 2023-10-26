@@ -40,7 +40,7 @@ public class ColumnMappingController {
                     @Content(mediaType = "application/json")})
     })
     @PostMapping("/v2/column")
-    public ResponseEntity addColumn(@RequestBody @Valid ColumnMappingDto columnMappingDto, HttpServletRequest request) {
+    public ResponseEntity addColumn(@RequestBody @Valid final ColumnMappingDto columnMappingDto, HttpServletRequest request) {
         try {
             ColumnMapping columnMapping = this.modelMapper.map(columnMappingDto, ColumnMapping.class);
             Map<String, Object> result = columnMappingService.addColumnMapping(columnMapping, request);
@@ -57,7 +57,7 @@ public class ColumnMappingController {
                     @Content(mediaType = "application/json")})
     })
     @PutMapping("/v2/column")
-    public ResponseEntity updateColumn(@RequestBody @Valid ColumnMappingDto columnMappingDto, HttpServletRequest request) {
+    public ResponseEntity updateColumn(@RequestBody @Valid final ColumnMappingDto columnMappingDto, HttpServletRequest request) {
         try {
             ColumnMapping columnMapping = this.modelMapper.map(columnMappingDto, ColumnMapping.class);
             Map<String, Object> result = columnMappingService.updateColumnMapping(columnMapping, request);
