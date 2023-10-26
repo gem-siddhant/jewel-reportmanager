@@ -14,13 +14,5 @@ public class JwtHelperService {
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token).getBody().getSubject();
     }
-
-    public String getUserNameFromToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            String token = bearerToken.substring(7, bearerToken.length());
-            return getUserNameFromJwtToken(token);
-        }
-        return null;
-    }
 }
+
