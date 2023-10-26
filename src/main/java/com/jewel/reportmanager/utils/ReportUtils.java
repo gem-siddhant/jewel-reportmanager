@@ -1,5 +1,6 @@
 package com.jewel.reportmanager.utils;
 
+import com.google.gson.Gson;
 import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.entity.RuleApi;
 import com.jewel.reportmanager.enums.StatusColor;
@@ -9,6 +10,7 @@ import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
+import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -21,8 +23,12 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 
+import java.lang.reflect.Type;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -35,6 +41,7 @@ import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.USER_DETAILS_NOT_FOUND;
 
 @Slf4j
+@Service
 public class ReportUtils {
 
     private static String userManagerUrl;
@@ -87,6 +94,23 @@ public class ReportUtils {
         return userDto;
     }
 
+//    /**
+//     * Returns user details by username and IsDeleted
+//     *
+//     * @param username
+//     * @param deleted
+//     * @return user
+//     */
+//    public static UserDto getUsernameAndIsDeleted(String username, Boolean deleted) {
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+//        HttpEntity httpEntity = new HttpEntity(null, headers);
+//        Map<String, Object> uriVariables = new HashMap<>();
+//        uriVariables.put("username", username);
+//        uriVariables.put("deleted", deleted);
+//        return (UserDto) RestClient.getApi(userManagerUrl + "/v1/username/deleted?username={username}&deleted={deleted}", httpEntity, UserDto.class, uriVariables).getBody();
+//    }
+
     /**
      * Returns user details by username and IsDeleted
      *
@@ -101,7 +125,22 @@ public class ReportUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("username", username);
         uriVariables.put("deleted", deleted);
-        return (UserDto) RestClient.getApi(userManagerUrl + "/v1/username/deleted?username={username}&deleted={deleted}", httpEntity, UserDto.class, uriVariables).getBody();
+        try {
+            ResponseEntity response = RestClient.getApi(userManagerUrl + "/userManagement/v1/username/deleted?username={username}&deleted={deleted}", httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            gson = new Gson();
+            Type type = new TypeToken<UserDto>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (RestClientException ex) {
+            log.info("User details not found for username: {}, ", username);
+            return null;
+        }
     }
 
     /**
@@ -242,7 +281,7 @@ public class ReportUtils {
         columns.put("end time", "end_time");
         columns.put("machine", "machine");
         return columns;
-}
+    }
 
     public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
 
@@ -608,7 +647,7 @@ public class ReportUtils {
     }
 
     public static double getScore(double brokenIndex, long downTime, long averageFixTime, String env,
-                           List<SuiteExeDto> suiteExeList) {
+                                  List<SuiteExeDto> suiteExeList) {
         double averageFixTimeScore = 25;
         double downTimeScore = 15;
         double averageFixTimeCount = 0;
@@ -1133,20 +1172,19 @@ public class ReportUtils {
         return finalList;
     }
 
-    public static Map<String, List<SuiteExeDto>> getSuiteNames(String reportName, List<Long> pid, List<String> projects, long starttime,
-                                                     long endtime,
-                                                     List<String> envs) {
-        Query query = new Query();
-        List<Criteria> criteria = new ArrayList<Criteria>();
-        criteria.add(Criteria.where("report_name").is(reportName));
-        criteria.add(Criteria.where("p_id").in(pid));
-        criteria.add(Criteria.where("project_name").in(projects));
-        criteria.add(Criteria.where("s_start_time").gte(starttime));
-        criteria.add(Criteria.where("s_end_time").lte(endtime));
-        criteria.add(Criteria.where("env").in(envs));
-        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+    public static Map<String, List<SuiteExeDto>> getSuiteNames(String reportName, List<Long> pid, List<String> projects, long startTime, long endTime, List<String> envs) {
+//        Query query = new Query();
+//        List<Criteria> criteria = new ArrayList<>();
+//        criteria.add(Criteria.where("report_name").is(reportName));
+//        criteria.add(Criteria.where("p_id").in(pid));
+//        criteria.add(Criteria.where("project_name").in(projects));
+//        criteria.add(Criteria.where("s_start_time").gte(startTime));
+//        criteria.add(Criteria.where("s_end_time").lte(endTime));
+//        criteria.add(Criteria.where("env").in(envs));
+//        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
         Map<String, List<SuiteExeDto>> map = new HashMap<>();
-        List<SuiteExeDto> suiteExeList = mongoOperations.find(query, SuiteExeDto.class);
+//        List<SuiteExeDto> suiteExeList = mongoOperations.find(query, SuiteExeDto.class);
+        List<SuiteExeDto> suiteExeList = RestApiUtils.getSuiteExesForReportName(reportName, pid, projects, startTime, endTime, envs);
         for (SuiteExeDto suiteExe : suiteExeList) {
             String key = suiteExe.getProject_name() + ":" + suiteExe.getReport_name() + ":" + suiteExe.getEnv();
             List<SuiteExeDto> data = map.getOrDefault(key, null);
