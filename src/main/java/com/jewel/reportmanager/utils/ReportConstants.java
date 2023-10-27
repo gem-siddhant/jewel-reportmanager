@@ -7,4 +7,5 @@ public class ReportConstants {
     public static final String INACTIVE_STATUS = "INACTIVE";
     public static final String REQUEST_ACCESS = "Request Access";
     public static final String NEVER_FIXED = "Never Fixed";
+    public static final String NO_ISSUES = "No Issues";
 }

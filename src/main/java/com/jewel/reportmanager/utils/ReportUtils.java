@@ -38,6 +38,8 @@ import java.util.stream.Collectors;
 import static com.jewel.reportmanager.enums.OperationType.FAILURE;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
 import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
+import static com.jewel.reportmanager.utils.ReportConstants.NEVER_FIXED;
+import static com.jewel.reportmanager.utils.ReportConstants.NO_ISSUES;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.USER_DETAILS_NOT_FOUND;
 
 @Slf4j
@@ -283,52 +285,52 @@ public class ReportUtils {
         return columns;
     }
 
-    public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
+//    public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
+//
+//        if (testExes.size() == 1) {
+//            if (testExes.get(0).getStatus().equalsIgnoreCase("FAIL")) {
+//                return 1;
+//            } else {
+//                return 0;
+//            }
+//        }
+//        double denom = Math.floor(testExes.size() / (double) 2);
+//
+//        double numenator = 0;
+//        int count = 0;
+//        TestExeCommonDto curr = null;
+//        TestExeCommonDto prev = null;
+//
+//        for (TestExeCommonDto testExe : testExes) {
+//
+//            if (curr == null && prev == null) {
+//                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
+//                    count++;
+//                }
+//                curr = testExe;
+//            } else {
+//                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
+//                    count++;
+//                }
+//                prev = curr;
+//                curr = testExe;
+//                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
+//                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
+//                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
+//                    numenator++;
+//                }
+//
+//            }
+//        }
+//
+//        if (count == testExes.size()) {
+//            return 1;
+//        }
+//        double res = Math.round((float) (numenator / denom) * 100.0) / 100.0;
+//        return res;
+//    }
 
-        if (testExes.size() == 1) {
-            if (testExes.get(0).getStatus().equalsIgnoreCase("FAIL")) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-        double denom = Math.floor(testExes.size() / (double) 2);
-
-        double numenator = 0;
-        int count = 0;
-        TestExeCommonDto curr = null;
-        TestExeCommonDto prev = null;
-
-        for (TestExeCommonDto testExe : testExes) {
-
-            if (curr == null && prev == null) {
-                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
-                    count++;
-                }
-                curr = testExe;
-            } else {
-                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
-                    count++;
-                }
-                prev = curr;
-                curr = testExe;
-                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
-                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
-                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
-                    numenator++;
-                }
-
-            }
-        }
-
-        if (count == testExes.size()) {
-            return 1;
-        }
-        double res = Math.round((float) (numenator / denom) * 100.0) / 100.0;
-        return res;
-    }
-
-    public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
+        public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
 
         if (suites.size() == 1) {
             if (suites.get(0).getStatus().equalsIgnoreCase("FAIL")) {
@@ -337,9 +339,9 @@ public class ReportUtils {
                 return 0;
             }
         }
-        double denom = Math.floor(suites.size() / (double) 2);
+        double denominator = Math.floor(suites.size() / (double) 2);
 
-        double numenator = 0;
+        double numerator = 0;
         int count = 0;
         SuiteExeDto curr = null;
         SuiteExeDto prev = null;
@@ -360,7 +362,7 @@ public class ReportUtils {
                 if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
                         || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
                         && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
-                    numenator++;
+                    numerator++;
                 }
 
             }
@@ -368,8 +370,81 @@ public class ReportUtils {
         if (count == suites.size()) {
             return 1;
         }
-        double res = Math.round((float) (numenator / denom) * 100.0) / 100.0;
+        double res = Math.round((float) (numerator / denominator) * 100.0) / 100.0;
         return res;
+    }
+
+    public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
+        if (testExes.isEmpty()) {
+            return 0;
+        }
+        int totalTestExes = testExes.size();
+        int failCount = 0;
+        int transitions = 0;
+
+        TestExeCommonDto prevTestExe = testExes.get(0);
+
+        for (int i = 1; i < totalTestExes; i++) {
+            TestExeCommonDto currentTestExe = testExes.get(i);
+            if (currentTestExe.getStatus().equalsIgnoreCase("FAIL")) {
+                failCount++;
+            }
+            if (isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
+                transitions++;
+            }
+            prevTestExe = currentTestExe;
+        }
+        if (failCount == totalTestExes) {
+            return 1.0;
+        }
+        if (transitions == 0) {
+            return 0.0;
+        }
+        return Math.round((double) transitions / (totalTestExes - 1) * 100.0) / 100.0;
+    }
+
+//    public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
+//        if (suites.isEmpty()) {
+//            return 0;
+//        }
+//        int totalSuites = suites.size();
+//        int failCount = 0;
+//        int transitions = 0;
+//
+//        SuiteExeDto prevSuite = suites.get(0);
+//
+//        for (int i = 1; i < totalSuites; i++) {
+//            SuiteExeDto currentSuite = suites.get(i);
+//            if (currentSuite.getStatus().equalsIgnoreCase("FAIL")) {
+//                failCount++;
+//            }
+//            if (isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
+//                transitions++;
+//            }
+//            prevSuite = currentSuite;
+//        }
+//        if (failCount == totalSuites) {
+//            return 1.0;
+//        }
+//        if (transitions == 0) {
+//            return 0.0;
+//        }
+//
+//        return Math.round((double) transitions / (totalSuites - 1) * 100.0) / 100.0;
+//    }
+
+    private static boolean isTransition(String status1, String status2) {
+        // Define your transition logic here
+        return (isNonFailure(status1) && isFailure(status2));
+    }
+
+    private static boolean isNonFailure(String status) {
+        return status.equalsIgnoreCase("PASS") || status.equalsIgnoreCase("INFO")
+                || status.equalsIgnoreCase("EXE") || status.equalsIgnoreCase("WARN");
+    }
+
+    private static boolean isFailure(String status) {
+        return status.equalsIgnoreCase("FAIL") || status.equalsIgnoreCase("ERR");
     }
 
     public static String averageFixTimeForTestExeCommon(List<TestExeCommonDto> testExes) {
@@ -507,9 +582,9 @@ public class ReportUtils {
 
     public static String getFailingSinceForTestExeCommon(List<TestExeCommonDto> testExes, double brokenIndex) {
         if (brokenIndex == 0) {
-            return "No Issues";
+            return NO_ISSUES;
         } else if (brokenIndex == 1) {
-            return "Never Fixed";
+            return NEVER_FIXED;
         } else {
             int count = 0;
             for (TestExeCommonDto testExe : testExes) {
@@ -520,7 +595,7 @@ public class ReportUtils {
 
             }
             if (count == 0) {
-                return "No Issues";
+                return NO_ISSUES;
             }
             return "Last " + count + " Runs";
         }
@@ -538,7 +613,7 @@ public class ReportUtils {
 
     public static String getDownTimeForTestExeCommon(List<TestExeCommonDto> testExes) {
         if (testExes.get(0).getStatus().equalsIgnoreCase("PASS")) {
-            return "No Issues";
+            return NO_ISSUES;
         } else {
             TestExeCommonDto prev = null;
             long firstFailTime = 0;
@@ -555,7 +630,7 @@ public class ReportUtils {
             Date d = new Date();
             long downTime = (d.getTime() - firstFailTime) / 1000;
             if (downTime < 0) {
-                return "No Issues";
+                return NO_ISSUES;
             }
             String res = "";
             DecimalFormat df = new DecimalFormat("#");
@@ -680,11 +755,9 @@ public class ReportUtils {
                 count++;
             }
         }
-        Query failOrExeTestCasesCountQuery = new Query(
-                Criteria.where("status").in("ERR", "FAIL").and("s_run_id").in(sRunIdsList));
-        Query testCaseCountQuery = new Query(Criteria.where("s_run_id").in(sRunIdsList));
-        double totalTestCaseCount = mongoOperations.count(testCaseCountQuery, TestExeDto.class);
-        double failTestCaseCount = mongoOperations.count(failOrExeTestCasesCountQuery, TestExeDto.class);
+        Map<String, Double> testCaseCountMap = RestApiUtils.getTestCaseCount(sRunIdsList, List.of("ERR", "FAIL"));
+        double totalTestCaseCount = testCaseCountMap.get("totalTestCaseCount");
+        double failTestCaseCount = testCaseCountMap.get("testCaseCountWithStatus");;
         if (totalTestCaseCount > 0) {
             testCaseScore = testCaseScore - ((failTestCaseCount / totalTestCaseCount) * 15);
         } else {
@@ -694,7 +767,7 @@ public class ReportUtils {
             testCaseScore = 0;
         }
 
-        if (suiteExeList.size() > 0) {
+        if (!suiteExeList.isEmpty()) {
             suiteScore = suiteScore - ((count / suiteExeList.size()) * 10);
         } else {
             suiteScore = 0;
@@ -1173,28 +1246,19 @@ public class ReportUtils {
     }
 
     public static Map<String, List<SuiteExeDto>> getSuiteNames(String reportName, List<Long> pid, List<String> projects, long startTime, long endTime, List<String> envs) {
-//        Query query = new Query();
-//        List<Criteria> criteria = new ArrayList<>();
-//        criteria.add(Criteria.where("report_name").is(reportName));
-//        criteria.add(Criteria.where("p_id").in(pid));
-//        criteria.add(Criteria.where("project_name").in(projects));
-//        criteria.add(Criteria.where("s_start_time").gte(startTime));
-//        criteria.add(Criteria.where("s_end_time").lte(endTime));
-//        criteria.add(Criteria.where("env").in(envs));
-//        query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
         Map<String, List<SuiteExeDto>> map = new HashMap<>();
-//        List<SuiteExeDto> suiteExeList = mongoOperations.find(query, SuiteExeDto.class);
         List<SuiteExeDto> suiteExeList = RestApiUtils.getSuiteExesForReportName(reportName, pid, projects, startTime, endTime, envs);
         for (SuiteExeDto suiteExe : suiteExeList) {
-            String key = suiteExe.getProject_name() + ":" + suiteExe.getReport_name() + ":" + suiteExe.getEnv();
-            List<SuiteExeDto> data = map.getOrDefault(key, null);
+            StringBuilder key = new StringBuilder();
+            key.append(suiteExe.getProject_name()).append(":").append(suiteExe.getReport_name()).append(":").append(suiteExe.getEnv());
+            List<SuiteExeDto> data = map.getOrDefault(key.toString(), null);
             if (data == null) {
-                List<SuiteExeDto> newlist = new ArrayList<>();
-                newlist.add(suiteExe);
-                map.put(key, newlist);
+                List<SuiteExeDto> newList = new ArrayList<>();
+                newList.add(suiteExe);
+                map.put(key.toString(), newList);
             } else {
                 data.add(suiteExe);
-                map.put(key, data);
+                map.put(key.toString(), data);
             }
         }
         return map;
@@ -1203,6 +1267,7 @@ public class ReportUtils {
     public static Map<String, Object> last5SuiteRuns(List<SuiteExeDto> getAllSuites) {
         List<SuiteExeDto> suiteExes = new ArrayList<>();
         suiteExes.addAll(getAllSuites);
+        // Collections.sort(suiteExes,new TimeComparator());
         suiteExes = suiteExes.subList(0, suiteExes.size() >= 5 ? 5 : suiteExes.size());
         if (suiteExes.size() > 0) {
             List<Long> passCount = new ArrayList<>();
@@ -1218,8 +1283,8 @@ public class ReportUtils {
                 if (suiteExe.getStatus().toUpperCase().equals("FAIL")) {
                     suiteFailCount++;
                 }
-                Query query1 = new Query(Criteria.where("s_run_id").is(suiteExe.getS_run_id()));
-                List<TestExeDto> testExeList = mongoOperations.find(query1, TestExeDto.class);
+//                Query query1 = new Query(Criteria.where("s_run_id").is(suiteExe.getS_run_id()));
+                List<TestExeDto> testExeList = RestApiUtils.getTestExeList(suiteExe.getS_run_id());
                 Map<String, Long> statusMap = new HashMap<>();
                 for (StatusColor statusColor : StatusColor.values()) {
                     statusMap.put(statusColor.toString(), 0L);
@@ -1336,15 +1401,12 @@ public class ReportUtils {
             return null;
         }
     }
-
     public static Map<String, Long> culprit(List<SuiteExeDto> getAllSuites) {
-        if (getAllSuites.size() == 0) {
+        if (getAllSuites.isEmpty()) {
             return null;
         }
-        List<String> srunIds = getAllSuites.stream().map(x -> x.getS_run_id()).collect(Collectors.toList());
-
-        Query query = new Query(Criteria.where("s_run_id").in(srunIds));
-        List<TestExeDto> testExeList = mongoOperations.find(query, TestExeDto.class);
+        List<String> sRunIds = getAllSuites.stream().map(SuiteExeDto::getS_run_id).collect(Collectors.toList());
+        List<TestExeDto> testExeList = RestApiUtils.getTestExeListForS_run_ids(sRunIds);
         Map<String, Long> totalCountMap = new HashMap<>();
         Map<String, Long> failCountMap = new HashMap<>();
         Map<String, Long> finalMap = new HashMap<>();
@@ -1353,7 +1415,7 @@ public class ReportUtils {
         long averagePercentage = 0L;
 
         for (TestExeDto testExe : testExeList) {
-            if (testExe.getStatus().toUpperCase().equals("FAIL") || testExe.getStatus().toUpperCase().equals("EXE")) {
+            if (testExe.getStatus().equalsIgnoreCase("FAIL") || testExe.getStatus().equalsIgnoreCase("EXE")) {
                 failCountMap.put(testExe.getName(), failCountMap.getOrDefault(testExe.getName(), 0L) + 1);
             }
             totalCountMap.put(testExe.getName(), totalCountMap.getOrDefault(testExe.getName(), 0L) + 1);
@@ -1391,7 +1453,6 @@ public class ReportUtils {
     public static double getQAScore(List<SuiteExeDto> getAllSuites) {
         List<String> sRunIdsList = new ArrayList<>();
         double suiteErrCount = 0;
-        double testcaseErrCount = 0;
         double falsePositive = 0;
 
         for (SuiteExeDto suiteExe : getAllSuites) {
@@ -1410,18 +1471,22 @@ public class ReportUtils {
             }
         }
 
-        Query errTestCasesCountQuery = new Query(
-                Criteria.where("status").in("ERR").and("s_run_id").in(sRunIdsList));
-        Query testCaseCountQuery = new Query(Criteria.where("s_run_id").in(sRunIdsList));
+//        Query errTestCasesCountQuery = new Query(
+//                Criteria.where("status").in("ERR").and("s_run_id").in(sRunIdsList));
+//        Query testCaseCountQuery = new Query(Criteria.where("s_run_id").in(sRunIdsList));
+//
+//        Query falsePositiveCountQuery = new Query(
+//                Criteria.where("classificationDetails.childFalsePostiveStatus").is(true).and("s_run_id")
+//                        .in(sRunIdsList));
 
-        Query falsePositiveCountQuery = new Query(
-                Criteria.where("classificationDetails.childFalsePostiveStatus").is(true).and("s_run_id")
-                        .in(sRunIdsList));
+//        double totalTestCaseCount = mongoOperations.count(testCaseCountQuery, TestExeDto.class);
+//        double errTestCaseCount = mongoOperations.count(errTestCasesCountQuery, TestExeDto.class);
 
-        double totalTestCaseCount = mongoOperations.count(testCaseCountQuery, TestExeDto.class);
-        double errTestCaseCount = mongoOperations.count(errTestCasesCountQuery, TestExeDto.class);
-
-        double falsePositiveTestCount = mongoOperations.count(falsePositiveCountQuery, TestExeDto.class);
+//        double falsePositiveTestCount = mongoOperations.count(falsePositiveCountQuery, TestExeDto.class);
+        Map<String, Double> testCaseCountMap = RestApiUtils.getTestCaseCount(sRunIdsList, List.of("ERR"));
+        double totalTestCaseCount = testCaseCountMap.get("totalTestCaseCount");
+        double errTestCaseCount = testCaseCountMap.get("testCaseCountWithStatus");
+        double falsePositiveTestCount = testCaseCountMap.get("falsePositiveTestCaseCount");
 
         double finalSuiteScore = (((999 * 0.5) * (getAllSuites.size() - suiteErrCount)) / getAllSuites.size());
         double finalTestcaseScore = ((((999 * 0.5) * (totalTestCaseCount - errTestCaseCount)) / totalTestCaseCount));
@@ -1445,111 +1510,27 @@ public class ReportUtils {
             res = seconds + " sec(s)";
         } else if (seconds >= 60 && seconds < 3600) {
             String ans = df.format(Math.floor(seconds / 60)) + "min";
-
             res = ans;
         } else if (seconds >= 60 && seconds < 86400) {
             String ans = df.format(Math.floor(seconds / 3600)) + "hr ";
             if (Math.floor((seconds % 3600) / 60) != 0) {
                 ans = ans + df.format(Math.floor((seconds % 3600) / 60)) + "m";
             }
-
             res = ans;
         } else {
             String ans = df.format(Math.floor(seconds / 86400)) + "d ";
             if (Math.floor((seconds % 86400) / 3600) != 0) {
                 ans = ans + df.format(Math.floor((seconds % 86400) / 3600)) + "hr";
             }
-
             res = ans;
         }
-
         return res;
     }
 
-    public static String getFailingSinceForSuiteExe(List<SuiteExeDto> suites, double brokenIndex) {
-        if (brokenIndex == 0) {
-            return "No Issues";
-        } else if (brokenIndex == 1) {
-            return "Never Fixed";
-        } else {
-            int count = 0;
-            for (SuiteExeDto suite : suites) {
-                if (!suite.getStatus().equalsIgnoreCase("FAIL")) {
-                    break;
-                }
-                count++;
 
-            }
-            if (count == 0) {
-                return "No Issues";
-            }
-            return "Last " + count + " Runs";
-        }
-    }
 
-    public static Long getLastPassForSuiteExe(List<SuiteExeDto> suites) {
-        for (SuiteExeDto suite : suites) {
-            if (suite.getStatus().equalsIgnoreCase("PASS")) {
-                return suite.getS_start_time();
-            }
 
-        }
-        return 0L;
-    }
 
-    public static String lastRunStatusForSuiteExe(List<SuiteExeDto> suites) {
-        return suites.get(0).getStatus();
-    }
-
-    public static Map<String, Long> lastStatusDetails(List<SuiteExeDto> suites) {
-        String s_run_id = suites.get(0).getS_run_id();
-        Query query = new Query(Criteria.where("s_run_id").is(s_run_id));
-        List<TestExeDto> TestcaseDetails = mongoOperations.find(query, TestExeDto.class);
-        Map<String, Long> statusMap = new HashMap<>();
-        for (StatusColor statusColor : StatusColor.values()) {
-            statusMap.put(statusColor.toString(), 0L);
-        }
-        long totalCount = 0;
-        for (TestExeDto testExe : TestcaseDetails) {
-            if (testExe.getStatus().toUpperCase().equals(StatusColor.PASS.toString())) {
-                long value = statusMap.get(StatusColor.PASS.toString()) + 1;
-                statusMap.put(StatusColor.PASS.toString(), value);
-                totalCount++;
-                continue;
-            }
-            if (testExe.getStatus().toUpperCase().equals(StatusColor.FAIL.toString())) {
-                long value = statusMap.get(StatusColor.FAIL.toString()) + 1;
-                statusMap.put(StatusColor.FAIL.toString(), value);
-                totalCount++;
-                continue;
-            }
-            if (testExe.getStatus().toUpperCase().equals(StatusColor.EXE.toString())) {
-                long value = statusMap.get(StatusColor.EXE.toString()) + 1;
-                statusMap.put(StatusColor.EXE.toString(), value);
-                totalCount++;
-                continue;
-            }
-            if (testExe.getStatus().toUpperCase().equals(StatusColor.ERR.toString())) {
-                long value = statusMap.get(StatusColor.ERR.toString()) + 1;
-                statusMap.put(StatusColor.ERR.toString(), value);
-                totalCount++;
-                continue;
-            }
-            if (testExe.getStatus().toUpperCase().equals(StatusColor.INFO.toString())) {
-                long value = statusMap.get(StatusColor.INFO.toString()) + 1;
-                statusMap.put(StatusColor.INFO.toString(), value);
-                totalCount++;
-                continue;
-            }
-            if (testExe.getStatus().toUpperCase().equals(StatusColor.WARN.toString())) {
-                long value = statusMap.get(StatusColor.WARN.toString()) + 1;
-                statusMap.put(StatusColor.WARN.toString(), value);
-                totalCount++;
-                continue;
-            }
-        }
-        return statusMap;
-    }
 
     public static Object createExecutionHeadersDataWithVarinceAndFalsePositive(SuiteExeDto getSuite, Map<String, Object> iconMap) {
 

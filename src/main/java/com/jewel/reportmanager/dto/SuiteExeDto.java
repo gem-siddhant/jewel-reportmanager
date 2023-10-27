@@ -1,7 +1,6 @@
 package com.jewel.reportmanager.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.jewel.reportmanager.entity.ClassificationDetails;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
