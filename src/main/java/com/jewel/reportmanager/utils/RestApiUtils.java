@@ -12,9 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -46,11 +48,14 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
+        String pidList =  pid.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("pid", pidList);
         uriVariables.put("status", status);
         uriVariables.put("username", username);
         try {
-            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v2/project/role/pid/status/username?pid={pid}&status={status}&username={username}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v2/project/role/pid/status/username?pid={pid}&status={status}&username={username}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -84,7 +89,7 @@ public class RestApiUtils {
         uriVariables.put("username", username);
         uriVariables.put("status", status);
         try {
-            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v2/project/role/entity?pid={pid}&username={username}&status={status}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v2/project/role/entity?pid={pid}&username={username}&status={status}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -116,7 +121,7 @@ public class RestApiUtils {
         uriVariables.put("pid", pid);
         uriVariables.put("username", username);
         try {
-            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v2/project/role/pid/username?pid={pid}&username={username}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v2/project/role/pid/username?pid={pid}&username={username}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -146,11 +151,14 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
+        String pidList =  pid.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("pid", pidList);
         uriVariables.put("status", status);
         uriVariables.put("realCompanyName", realCompanyName);
         try {
-            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v1/project/pid/status/realCompanyName?pid={pid}&status={status}&realCompanyName={realCompanyName}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v1/project/pid/status/realCompanyName?pid={pid}&status={status}&realCompanyName={realCompanyName}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -168,23 +176,24 @@ public class RestApiUtils {
     }
 
     /**
-     * Returns a list of project pid(s) for pid, status and username.
+     * Returns a list of project pid(s) for pid and status.
      *
      * @param pid
      * @param status
-     * @param username
      * @return List<Long>
      */
-    public static List<Long> getProjectPidList(List<Long> pid, String status, String username) {
+    public static List<Long> getProjectPidList(List<Long> pid, String status) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
+        String pidList =  pid.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("pid", pidList);
         uriVariables.put("status", status);
-        uriVariables.put("username", username);
         try {
-            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v1/project/pid/status/username?pid={pid}&status={status}&username={username}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v1/project/pids?pid={pid}&status={status}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -212,9 +221,12 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
+        String pidList =  pid.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("pid", pidList);
         try {
-            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v1/project/pid?pid={pid}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(projectManagerUrl + "/v1/project/pid?pid={pid}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -247,8 +259,13 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("p_id", p_id);
-        uriVariables.put("env", env);
+        String pidList =  p_id.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("p_id", pidList);
+        String envList = env.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("env", envList);
         uriVariables.put("s_start_time", s_start_time);
         uriVariables.put("s_end_time", s_end_time);
         uriVariables.put("pageNo", pageNo);
@@ -287,8 +304,13 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("p_id", p_id);
-        uriVariables.put("env", env);
+        String pidList =  p_id.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("p_id", pidList);
+        String envList = env.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("env", envList);
         uriVariables.put("s_start_time", s_start_time);
         uriVariables.put("s_end_time", s_end_time);
         uriVariables.put("pageNo", pageNo);
@@ -329,8 +351,13 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("p_id", p_id);
-        uriVariables.put("env", env);
+        String pidList =  p_id.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("p_id", pidList);
+        String envList = env.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("env", envList);
         uriVariables.put("s_start_time", s_start_time);
         uriVariables.put("s_end_time", s_end_time);
         uriVariables.put("pageNo", pageNo);
@@ -462,8 +489,13 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("p_id", p_id);
-        uriVariables.put("env", env);
+        String pidList =  p_id.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("p_id", pidList);
+        String envList = env.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("env", envList);
         uriVariables.put("s_start_time", s_start_time);
         uriVariables.put("s_end_time", s_end_time);
         ResponseEntity response = RestClient.getApi(gemUrl + "/v1/suiteExe/count?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}", httpEntity, Object.class, uriVariables);
@@ -757,7 +789,7 @@ public class RestApiUtils {
         uriVariables.put("varianceId", varianceId);
         uriVariables.put("varianceStatus", varianceStatus);
         try {
-            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", httpEntity, Response.class, uriVariables);
+            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -837,6 +869,89 @@ public class RestApiUtils {
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Test exe list is empty for s_run_id: {} pageNo: {}, sort: {} and sortedColumn: {}", s_run_id, pageNo, sort, sortedColumn);
             return Collections.EMPTY_LIST;
+        }
+    }
+
+    /**
+     * Returns a list of suite exes for report name, pid, projects, startTime, endTime, env.
+     *
+     * @param reportName
+     * @param pid
+     * @param projects
+     * @param startTime
+     * @param endTime
+     * @param envs
+     * @return List<SuiteExeDto>
+     */
+    public static List<SuiteExeDto> getSuiteExesForReportName(String reportName, List<Long> pid, List<String> projects, long startTime, long endTime, List<String> envs) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("report_name", reportName);
+        String pidList =  pid.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(","));
+        uriVariables.put("p_id", pidList);
+        String projectsList = projects.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("projects", projectsList);
+        uriVariables.put("s_start_time", startTime);
+        uriVariables.put("s_end_time", endTime);
+        String envList = envs.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("env", envList);
+        try {
+            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/suiteExe/report_name?report_name={report_name}&p_id={p_id}&projects={projects}&s_start_time={s_start_time}&s_end_time={s_end_time}&env={env}", httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            gson = new Gson();
+            Type type = new TypeToken<List<SuiteExeDto>>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.info("Suite exe list is empty for reportName: {}, pid: {}, projects: {}, start time: {}, end time: {} and env: {}", reportName, pid, projects, startTime, endTime, envs);
+            return Collections.EMPTY_LIST;
+        }
+    }
+
+    /**
+     * Returns test case count for s_run_id and status.
+     *
+     * @param s_run_id
+     * @param status
+     * @return  Map<String, Object> - map with test case count.
+     */
+    public static  Map<String, Double> getTestCaseCount(List<String> s_run_id, List<String> status) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        String sRunIdList = s_run_id.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("s_run_id", sRunIdList);
+        String statusList = status.stream()
+                .collect(Collectors.joining(","));
+        uriVariables.put("status", statusList);
+        try {
+            ResponseEntity response = RestClient.getApi(gemUrl + "/v1/testExe/testCase?s_run_id={s_run_id}&status={status}", httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            gson = new Gson();
+            Type type = new TypeToken<Map<String, Double>>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (RestClientException ex) {
+            log.info("Empty map return for test case count for s_run_id: {} and status: {}", s_run_id, status);
+            return Collections.emptyMap();
         }
     }
 }

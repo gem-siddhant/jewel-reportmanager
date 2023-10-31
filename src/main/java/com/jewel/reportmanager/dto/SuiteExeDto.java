@@ -1,10 +1,10 @@
 package com.jewel.reportmanager.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.jewel.reportmanager.entity.ClassificationDetails;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
@@ -16,6 +16,7 @@ import java.util.Set;
 
 @Getter
 @Setter
+@ToString
 public class SuiteExeDto {
 
     private String s_run_id;

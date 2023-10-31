@@ -1,4 +1,4 @@
-package com.jewel.reportmanager.entity;
+package com.jewel.reportmanager.dto;
 
 import com.jewel.reportmanager.enums.ClassificationType;
 import lombok.Getter;
@@ -10,7 +10,6 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 @Setter
 public class ClassificationDetails {
 
-    @Field(targetType = FieldType.STRING)
     private ClassificationType classification;
 
     private String reason ;
