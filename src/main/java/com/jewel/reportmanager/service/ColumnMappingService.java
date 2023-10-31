@@ -10,6 +10,7 @@ import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.repository.ColumnMappingRepository;
 import com.jewel.reportmanager.utils.ColumnsUtils;
 import com.jewel.reportmanager.utils.ReportUtils;
+import com.jewel.reportmanager.utils.RestApiUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
 import static com.jewel.reportmanager.enums.OperationType.*;
-import static com.jewel.reportmanager.utils.ColumnsResponseConstants.*;
+import static com.jewel.reportmanager.utils.Constants.*;
 import static com.jewel.reportmanager.utils.ReportConstants.REQUEST_ACCESS;
 
 @Slf4j
@@ -50,8 +51,8 @@ public class ColumnMappingService {
 
         // Check for an existing column mapping
         ColumnMapping existingMapping = isFrameworkLevel(columnMapping)
-                ? this.columnMappingRepository.findByLevelAndNameIgnoreCaseAndIsDeleted(columnMapping.getLevel(), columnMapping.getName(), false)
-                : this.columnMappingRepository.findByLevelAndPidAndNameIgnoreCaseAndIsDeleted(columnMapping.getLevel(), columnMapping.getPid(), columnMapping.getName(), false);
+                ? columnMappingRepository.findByLevelAndNameIgnoreCaseAndIsDeleted(columnMapping.getLevel(), columnMapping.getName(), false)
+                : columnMappingRepository.findByLevelAndPidAndNameIgnoreCaseAndIsDeleted(columnMapping.getLevel(), columnMapping.getPid(), columnMapping.getName(), false);
 
         if (existingMapping != null) {
             log.error("Column Mapping already present. User: {}, Column Mapping: {}", username, columnMapping);
@@ -59,7 +60,7 @@ public class ColumnMappingService {
         }
 
         // Set common column properties
-        columnMapping.setId(this.sequenceGenerator.generateSequence(ColumnMapping.SEQUENCE_NAME));
+        columnMapping.setId(sequenceGenerator.generateSequence(ColumnMapping.SEQUENCE_NAME));
         columnMapping.setAddedBy(username);
         columnMapping.setAddedAt(new Date().getTime());
         columnMapping.setDeleted(false);
@@ -86,7 +87,7 @@ public class ColumnMappingService {
         checkForMissingProjectId(columnMapping);
 
         // Check if the column mapping with the given ID exists
-        ColumnMapping existingMapping = this.columnMappingRepository.findByIdAndIsDeleted(columnMapping.getId(), false);
+        ColumnMapping existingMapping = columnMappingRepository.findByIdAndIsDeleted(columnMapping.getId(), false);
 
         if (existingMapping == null) {
             log.error("Column Mapping details not found. User: {}, Column Mapping ID: {}", username, columnMapping.getId());
@@ -125,7 +126,7 @@ public class ColumnMappingService {
         String username = ColumnsUtils.getUserNameFromToken(request);
         UserDto user = ReportUtils.getUserDtoFromServetRequest();
 
-        ColumnMapping columnMapping = this.columnMappingRepository.findByIdAndIsDeleted(id, false);
+        ColumnMapping columnMapping = columnMappingRepository.findByIdAndIsDeleted(id, false);
         if (columnMapping == null) {
             log.error("Column Mapping details not found. User: {}, Column Mapping ID: {}", username, id);
             throw new CustomDataException(COLUMN_MAPPING_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.CONFLICT);
@@ -137,7 +138,7 @@ public class ColumnMappingService {
         columnMapping.setDeleted(true);
         columnMapping.setUpdatedAt(new Date().getTime());
         columnMapping.setUpdatedBy(username);
-        this.columnMappingRepository.save(columnMapping);
+        columnMappingRepository.save(columnMapping);
 
         log.info("Column Mapping deleted successfully. User: {}, Column Mapping ID: {}", username, id);
 
@@ -154,29 +155,27 @@ public class ColumnMappingService {
      * @return A list of column mappings that match the criteria.
      */
     public List<String> findColumnMapping(Long pid, String name, List<String> frameworks) {
-        ColumnMapping columnMapping = null;
+        ColumnMapping columnMapping;
         List<ColumnLevel> levelsToCheck = Arrays.asList(ColumnLevel.JOB_NAME, ColumnLevel.PROJECT_REPORT);
         for (ColumnLevel level : levelsToCheck) {
-            columnMapping = this.columnMappingRepository.findByLevelAndPidAndNameIgnoreCaseAndIsDeleted(level, pid, name, false);
+            columnMapping = columnMappingRepository.findByLevelAndPidAndNameIgnoreCaseAndIsDeleted(level, pid, name, false);
             if (columnMapping != null && !columnMapping.getColumns().isEmpty()) {
                 log.info("Found matching column mapping. PID: {}, Name: {}, Level: {}", pid, name, level);
                 return columnMapping.getColumns();
             }
         }
 
-        columnMapping = this.columnMappingRepository.findByLevelAndPidAndIsDeleted(ColumnLevel.PROJECT, pid, false);
+        columnMapping = columnMappingRepository.findByLevelAndPidAndIsDeleted(ColumnLevel.PROJECT, pid, false);
         if (columnMapping != null) {
             log.info("Found matching column mapping at the project level. PID: {}", pid);
-            return columnMapping.getColumns().size() > 0 ? columnMapping.getColumns() : null;
+            return !columnMapping.getColumns().isEmpty() ? columnMapping.getColumns() : null;
         }
 
         List<String> columns = new ArrayList<>();
         for (String framework : frameworks) {
             String frameworkName = framework.toUpperCase().contains(GEM_PYP) ? GEM_PYP : framework;
-            ColumnMapping columnMapping1 = frameworkName.equals(GEM_PYP)
-                    ? this.columnMappingRepository.findByLevelAndNameContainingIgnoreCaseAndIsDeleted(ColumnLevel.FRAMEWORK, GEM_PYP, false)
-                    : this.columnMappingRepository.findByLevelAndNameContainingIgnoreCaseAndIsDeleted(ColumnLevel.FRAMEWORK, framework, false);
-            if (columnMapping1 != null && columnMapping1.getColumns().size() > 0) {
+            ColumnMapping columnMapping1 = columnMappingRepository.findByLevelAndNameContainingIgnoreCaseAndIsDeleted(ColumnLevel.FRAMEWORK, frameworkName, false);
+            if (columnMapping1 != null && !columnMapping1.getColumns().isEmpty()) {
                 log.info("Found matching column mapping for framework: {}. Columns: {}", frameworkName, columnMapping1.getColumns());
                 columns.addAll(columnMapping1.getColumns());
             }
@@ -196,7 +195,6 @@ public class ColumnMappingService {
     public Map<String, Object> processColumnMapping(ColumnMapping columnMapping) {
         int i = 0;
         for (String value : columnMapping.getColumns()) {
-            value = value.toUpperCase();
             if (value == null || value.isEmpty()) {
                 log.error("Invalid column value in the column mapping. Value: {}", value);
                 throw new CustomDataException(COLUMN_MAPPING_VALUE_NOT_CORRECT, null, FAILURE, HttpStatus.BAD_REQUEST);
@@ -206,7 +204,7 @@ public class ColumnMappingService {
         }
         Map<String, Object> map = new HashMap<>();
         map.put("ID", columnMapping.getId());
-        this.columnMappingRepository.save(columnMapping);
+        columnMappingRepository.save(columnMapping);
         log.info("Column mapping processed. ID: {}", columnMapping.getId());
         return map;
     }
@@ -246,7 +244,7 @@ public class ColumnMappingService {
      */
     private void checkAccessAndPermissions(ColumnMapping columnMapping, UserDto user) {
         if (!isFrameworkLevel(columnMapping)) {
-            ProjectDto project = ColumnsUtils.getProjectByPidAndStatus(columnMapping.getPid(), "ACTIVE");
+            ProjectDto project = RestApiUtils.getProjectByPidAndStatus(columnMapping.getPid(), "ACTIVE");
             if (project == null) {
                 log.error("Project does not exist. Project ID: {}", columnMapping.getPid());
                 throw new CustomDataException(PROJECT_DOES_NOT_EXIST, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);

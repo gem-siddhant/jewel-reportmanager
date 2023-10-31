@@ -43,15 +43,6 @@ public class ColumnsUtils {
         return null;
     }
 
-    public static ProjectDto getProjectByPidAndStatus(Long pid, String status) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
-        HttpEntity httpEntity = new HttpEntity(null, headers);
-        Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
-        uriVariables.put("status", status);
-        return (ProjectDto) RestClient.getApi(projectManagerUrl + "/v1/project/pid/status?pid={pid}&status={status}",httpEntity,ProjectDto.class,uriVariables).getBody();
-    }
 
     public static boolean validateRoleWithViewerAccess(UserDto user, ProjectDto project) {
         if (project == null) {

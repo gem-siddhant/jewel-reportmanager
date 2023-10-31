@@ -1,6 +1,6 @@
 package com.jewel.reportmanager.utils;
 
-public class ColumnsResponseConstants {
+public class Constants {
     public static final String GEM_PYP =  "GEMPYP";
     public static final String COLUMN_MAPPING_PRESENT = "Column Mapping already present";
     public static final String COLUMN_MAPPING_DELETE_SUCCESSFULLY = "Column Mapping Delete Successfully";

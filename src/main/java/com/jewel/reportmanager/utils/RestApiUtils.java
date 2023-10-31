@@ -771,7 +771,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("pid", pid);
         uriVariables.put("status", status);
-        return (ProjectDto) RestClient.getApi(projectManagerUrl + "/v2/project/pid/status?pid={pid}&status={status}", httpEntity, ProjectDto.class, uriVariables).getBody();
+        return (ProjectDto) RestClient.getApi(projectManagerUrl + "/v1/project/pid/status?pid={pid}&status={status}",httpEntity,ProjectDto.class,uriVariables).getBody();
     }
 
     /**

@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.jewel.reportmanager.enums.OperationType.*;
-import static com.jewel.reportmanager.utils.ColumnsResponseConstants.*;
+import static com.jewel.reportmanager.utils.Constants.*;
 
 @Validated
 @RestController
