@@ -1,4 +1,4 @@
-package com.jewel.reportmanager.entity;
+package com.jewel.reportmanager.dto;
 
 import lombok.Getter;
 import lombok.Setter;

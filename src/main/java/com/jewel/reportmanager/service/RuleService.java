@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.dto.StepsDto;
 import com.jewel.reportmanager.dto.ClassificationDetails;
-import com.jewel.reportmanager.entity.RuleApi;
+import com.jewel.reportmanager.dto.RuleApi;
 import com.jewel.reportmanager.enums.OperationType;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.exception.CustomDataException;
@@ -480,10 +480,10 @@ public class RuleService {
         return new Response(result, count + " Records found", SUCCESS);
     }
 
-    private Long getReportDetailsToCreateSuiteDiagnoseReport(List<String> reportNames, List<Long> p_ids, List<String> projects, long startTime, long endTime, List<String> envs, List<Map<String, Object>> data) {
+    private Long getReportDetailsToCreateSuiteDiagnoseReport(List<String> reportNames, List<Long> pIds, List<String> projects, long startTime, long endTime, List<String> envs, List<Map<String, Object>> data) {
         long count = 0;
         for (String reportName : reportNames) {
-            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(reportName, p_ids, projects, startTime,
+            Map<String, List<SuiteExeDto>> suiteMap = ReportUtils.getSuiteNames(reportName, pIds, projects, startTime,
                     endTime, envs);
             count = count + suiteMap.size();
             for (Map.Entry<String, List<SuiteExeDto>> entry : suiteMap.entrySet()) {
@@ -579,14 +579,14 @@ public class RuleService {
     }
 
     private Map<String, Long> lastStatusDetails(List<SuiteExeDto> suites) {
-        String s_run_id = suites.get(0).getS_run_id();
-        List<TestExeDto> TestcaseDetails = RestApiUtils.getTestExeList(s_run_id);
+        String sRunId = suites.get(0).getS_run_id();
+        List<TestExeDto> testcaseDetails = RestApiUtils.getTestExeList(sRunId);
         Map<String, Long> statusMap = new HashMap<>();
         for (StatusColor statusColor : StatusColor.values()) {
             statusMap.put(statusColor.toString(), 0L);
         }
         long totalCount = 0;
-        for (TestExeDto testExe : TestcaseDetails) {
+        for (TestExeDto testExe : testcaseDetails) {
             String status = testExe.getStatus().toUpperCase();
             switch (status) {
                 case "PASS":
@@ -633,10 +633,9 @@ public class RuleService {
     }
 
     private Response createTestCaseRunReport(RuleApi payload, Integer pageNo, Integer sort,
-                                             String sortedColumn, Object errors) throws ParseException {
+                                             String sortedColumn, List<String> errors) {
         Map<String, Object> result = new HashMap<>();
         List<Object> headers = new ArrayList<>();
-        List<Map<String, Object>> data = new ArrayList<>();
         Collections.addAll(headers, "Project Name", "TestCase Name", "Environment", "Status", "Action",
                 "Product Type",
                 "Duration");
@@ -645,7 +644,7 @@ public class RuleService {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
-        Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
+        Map<String, Object> resultMap = RestApiUtils.getAllTestExesForTcRunId(payload, pageNo, sort,
                 sortedColumn);
         long count = (long) resultMap.get("count");
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
@@ -653,64 +652,69 @@ public class RuleService {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
-        for (BasicDBObject testExeDto : results) {
-            List<Document> ob = (List<Document>) testExeDto.get("result");
-            Document suiteExeDto = ob.get(0);
-            Map<String, Object> temp = new HashMap<String, Object>();
-            Map<String, Object> actionreport = new HashMap<>();
-            actionreport.put("subType", "teststep_report");
-            temp.put("Action",
-                    ReportUtils.createCustomObject(testExeDto.get("tc_run_id"), "action", testExeDto.get("tc_run_id"),
-                            "center", actionreport));
-            temp.put("TestCase Name",
-                    ReportUtils.createCustomObject(testExeDto.get("name"), "text", testExeDto.get("name"), "left"));
-            temp.put("Project Name",
-                    ReportUtils.createCustomObject(
-                            StringUtils.capitalize(String.valueOf(suiteExeDto.get("project_name"))), "text",
-                            suiteExeDto.get("project_name"), "left"));
-            temp.put("Environment",
-                    ReportUtils.createCustomObject(StringUtils.capitalize(String.valueOf(suiteExeDto.get("env"))),
-                            "text", suiteExeDto.get("env"), "left"));
-            temp.put("Status",
-                    ReportUtils.createCustomObject(testExeDto.get("status"), "status", testExeDto.get("status"),
-                            "center"));
-            temp.put("Product Type", ReportUtils.createCustomObject(testExeDto.get("product_type"), "text",
-                    testExeDto.get("product_type"), "left"));
-            temp.put("P ID",
-                    ReportUtils.createCustomObject(suiteExeDto.get("p_id"), "text",
-                            suiteExeDto.get("p_id"), "left"));
-
-            if (((long) testExeDto.get("end_time")) != 0) {
-
-                Map<String, Object> subtype = new HashMap<>();
-                subtype.put("subType", "duration");
-                Map<String, Object> values = new HashMap<>();
-                values.put("start_time", ((long) testExeDto.get("start_time")));
-                values.put("end_time", ((long) testExeDto.get("end_time")));
-                temp.put("Duration",
-                        ReportUtils.createCustomObject(values, "date",
-                                ((float) (((long) testExeDto.get("end_time")) - ((long) testExeDto.get("start_time")))),
-                                "center", subtype));
-                temp.put("End Time",
-                        ReportUtils.createCustomObject(((long) testExeDto.get("end_time")), "date",
-                                (testExeDto.get("end_time")), "center"));
-            } else {
-                temp.put("Duration",
-                        ReportUtils.createCustomObject("-", "text", ((long) testExeDto.get("end_time")), "center"));
-            }
-            data.add(temp);
-        }
+        List<Map<String, Object>> data = getDataForTestCaseRunReport(results);
         Collections.reverse(data);
         result.put("data", data);
-        if (errors != null) {
+        if (!errors.isEmpty()) {
             result.put("errors", errors);
         }
         result.put("totalElements", count);
         return new Response(result, count + " Records found", SUCCESS);
     }
 
+    private List<Map<String, Object>> getDataForTestCaseRunReport(List<BasicDBObject> results) {
+        List<Map<String, Object>> data = new ArrayList<>();
+        for (BasicDBObject testExe : results) {
+            List<Document> suiteExeList = (List<Document>) testExe.get("result");
+            Document suiteExe = suiteExeList.get(0);
+            Map<String, Object> temp = new HashMap<>();
+            Map<String, Object> actionReport = new HashMap<>();
+            actionReport.put("subType", "teststep_report");
+            temp.put("Action",
+                    ReportUtils.createCustomObject(testExe.get("tc_run_id"), "action", testExe.get("tc_run_id"),
+                            "center", actionReport));
+            temp.put("TestCase Name",
+                    ReportUtils.createCustomObject(testExe.get("name"), "text", testExe.get("name"), "left"));
+            temp.put("Project Name",
+                    ReportUtils.createCustomObject(
+                            StringUtils.capitalize(String.valueOf(suiteExe.get("project_name"))), "text",
+                            suiteExe.get("project_name"), "left"));
+            temp.put("Environment",
+                    ReportUtils.createCustomObject(StringUtils.capitalize(String.valueOf(suiteExe.get("env"))),
+                            "text", suiteExe.get("env"), "left"));
+            temp.put("Status",
+                    ReportUtils.createCustomObject(testExe.get("status"), "status", testExe.get("status"),
+                            "center"));
+            temp.put("Product Type", ReportUtils.createCustomObject(testExe.get("product_type"), "text",
+                    testExe.get("product_type"), "left"));
+            temp.put("P ID",
+                    ReportUtils.createCustomObject(suiteExe.get("p_id"), "text",
+                            suiteExe.get("p_id"), "left"));
+
+            if (((long) testExe.get("end_time")) != 0) {
+                Map<String, Object> subtype = new HashMap<>();
+                subtype.put("subType", "duration");
+                Map<String, Object> values = new HashMap<>();
+                values.put("start_time", (testExe.get("start_time")));
+                values.put("end_time", (testExe.get("end_time")));
+                temp.put("Duration",
+                        ReportUtils.createCustomObject(values, "date",
+                                ((float) (((long) testExe.get("end_time")) - ((long) testExe.get("start_time")))),
+                                "center", subtype));
+                temp.put("End Time",
+                        ReportUtils.createCustomObject(((long) testExe.get("end_time")), "date",
+                                (testExe.get("end_time")), "center"));
+            } else {
+                temp.put("Duration",
+                        ReportUtils.createCustomObject("-", "text", (testExe.get("end_time")), "center"));
+            }
+            data.add(temp);
+        }
+        return data;
+    }
+
     private Response createTestCaseSummaryReport(RuleApi payload, Integer pageNo, Integer sort,
-                                                 String sortedColumn, Object errors) throws ParseException {
+                                                 String sortedColumn, Object errors) {
         Map<String, Object> result = new HashMap<>();
 
         List<Object> headers = new ArrayList<>();
@@ -722,7 +726,7 @@ public class RuleService {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
-        Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
+        Map<String, Object> resultMap = RestApiUtils.getAllTestExesForTcRunId(payload, pageNo, sort,
                 sortedColumn);
         long count = (long) resultMap.get("count");
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
@@ -732,20 +736,21 @@ public class RuleService {
         }
         Map<String, List<TestExeCommonDto>> listMap = new HashMap<>();
         for (BasicDBObject testExeDto : results) {
-            List<Document> ob = (List<Document>) testExeDto.get("result");
-            Document suiteExeDto = ob.get(0);
+            List<Document> suiteExeList = (List<Document>) testExeDto.get("result");
+            Document suiteExeDto = suiteExeList.get(0);
             TestExeCommonDto testExeDtoSummery = ReportUtils.getTestExeCommonByBasicObjectAndDocument(testExeDto,
                     suiteExeDto);
-            String key = testExeDtoSummery.getName() + ":" + testExeDtoSummery.getReport_name() + ":"
-                    + testExeDtoSummery.getEnv() + ":" + testExeDtoSummery.getProject_name();
-            List<TestExeCommonDto> list = listMap.getOrDefault(key, null);
+            StringBuilder key = new StringBuilder();
+            key.append(testExeDtoSummery.getName()).append(":").append(testExeDtoSummery.getReport_name())
+                    .append(":").append(testExeDtoSummery.getEnv()).append(":").append(testExeDtoSummery.getProject_name());
+            List<TestExeCommonDto> list = listMap.getOrDefault(key.toString(), null);
             if (list == null) {
                 List<TestExeCommonDto> testExeDtoSummeryList = new ArrayList<>();
                 testExeDtoSummeryList.add(testExeDtoSummery);
-                listMap.put(key, testExeDtoSummeryList);
+                listMap.put(String.valueOf(key), testExeDtoSummeryList);
             } else {
                 list.add(testExeDtoSummery);
-                listMap.put(key, list);
+                listMap.put(String.valueOf(key), list);
             }
         }
 
@@ -830,11 +835,11 @@ public class RuleService {
     }
 
     private Response createTestCaseDiagnoseReport(RuleApi payload, Integer pageNo, Integer sort,
-                                                  String sortedColumn, Object errors) throws ParseException {
+                                                  String sortedColumn, Object errors) {
 
-        Map<String, Object> result = new HashMap<String, Object>();
-        List<Object> headers = new ArrayList<Object>();
-        List<Map<String, Object>> data = new ArrayList<Map<String, Object>>();
+        Map<String, Object> result = new HashMap<>();
+        List<Object> headers = new ArrayList<>();
+        List<Map<String, Object>> data = new ArrayList<>();
         Collections.addAll(headers, "Project Name", "TestCase Name", "Environment", "Report Name", "Last Run Status",
                 "Failing Since", "Broken Index", "Downtime", "Average Fix Time", "Last Pass");
         result.put("headers", headers);
@@ -842,7 +847,7 @@ public class RuleService {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
-        Map<String, Object> resultMap = ReportUtils.getTestCaseExesByQuery(payload, pageNo, sort,
+        Map<String, Object> resultMap = RestApiUtils.getAllTestExesForTcRunId(payload, pageNo, sort,
                 sortedColumn);
         long count = (long) resultMap.get("count");
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");

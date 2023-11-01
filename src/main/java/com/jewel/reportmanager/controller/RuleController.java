@@ -2,7 +2,7 @@ package com.jewel.reportmanager.controller;
 
 import com.jewel.reportmanager.dto.Response;
 import com.jewel.reportmanager.dto.RuleApiDto;
-import com.jewel.reportmanager.entity.RuleApi;
+import com.jewel.reportmanager.dto.RuleApi;
 import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.service.RuleService;
 import org.modelmapper.ModelMapper;

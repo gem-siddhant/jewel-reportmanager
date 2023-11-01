@@ -2,7 +2,6 @@ package com.jewel.reportmanager.utils;
 
 import com.google.gson.Gson;
 import com.jewel.reportmanager.dto.*;
-import com.jewel.reportmanager.entity.RuleApi;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.enums.UserRole;
 import com.jewel.reportmanager.exception.CustomDataException;
@@ -17,21 +16,16 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import java.lang.reflect.Type;
 import java.text.DecimalFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -50,6 +44,11 @@ public class ReportUtils {
     private static String gemUrl;
     private static String projectManagerUrl;
     private static MongoOperations mongoOperations;
+    private static RestTemplate restTemplate;
+    @Autowired
+    public void setRestTemplate(RestTemplate restTemplate) {
+        ReportUtils.restTemplate = restTemplate;
+    }
 
     @Value("${user.manager.url}")
     public void setUserManagerUrl(String userManagerUrl) {
@@ -128,7 +127,7 @@ public class ReportUtils {
         uriVariables.put("username", username);
         uriVariables.put("deleted", deleted);
         try {
-            ResponseEntity response = RestClient.getApi(userManagerUrl + "/userManagement/v1/username/deleted?username={username}&deleted={deleted}", httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(userManagerUrl + "/userManagement/v1/username/deleted?username={username}&deleted={deleted}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -204,86 +203,82 @@ public class ReportUtils {
         return projectRole != null || ((user.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(UserRole.SUPER_ADMIN.toString()));
     }
 
-    public static Map<String, Object> getTestCaseExesByQuery(RuleApi payload, Integer pageNo, Integer sort,
-                                                             String sortedColumn) throws ParseException {
-        Map<String, Object> data = new HashMap<>();
-        Map<String, String> getTestcaseColumnName = getTestcaseColumnName();
-        long startTime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
-        long endTime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
-                + (1000 * 60 * 60 * 24);
-        List<String> projects = payload.getProject();
-        projects.replaceAll(String::toLowerCase);
-        List<String> envs = payload.getEnv();
-        envs.replaceAll(String::toLowerCase);
-        List<Criteria> criteria2 = new ArrayList<>();
-        criteria2.add(Criteria.where("result.p_id").in(payload.getProjectid()));
-        criteria2.add(Criteria.where("result.env").in(envs));
-        criteria2.add(Criteria.where("start_time").gte(startTime));
-        criteria2.add(Criteria.where("end_time").lte(endTime));
+//    public static Map<String, Object> getAllTestExesForTcRunId(RuleApi payload, Integer pageNo, Integer sort,
+//                                                               String sortedColumn) throws ParseException {
+//        Map<String, Object> data = new HashMap<>();
+//        Map<String, String> getTestcaseColumnName = getTestcaseColumnName();
+//        long startTime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getStartTime()).getTime();
+//        long endTime = new SimpleDateFormat("MM/dd/yyyy").parse(payload.getEndTime()).getTime()
+//                + (1000 * 60 * 60 * 24);
+//        List<String> projects = payload.getProject();
+//        projects.replaceAll(String::toLowerCase);
+//        List<String> envs = payload.getEnv();
+//        envs.replaceAll(String::toLowerCase);
+//        List<Criteria> criteria2 = new ArrayList<>();
+//        criteria2.add(Criteria.where("result.p_id").in(payload.getProjectid()));
+//        criteria2.add(Criteria.where("result.env").in(envs));
+//        criteria2.add(Criteria.where("start_time").gte(startTime));
+//        criteria2.add(Criteria.where("end_time").lte(endTime));
+//
+//        LookupOperation lookupOperation = LookupOperation.newLookup()
+//                .from("suiteExe")
+//                .localField("s_run_id")
+//                .foreignField("s_run_id")
+//                .as("result");
+//        MatchOperation matchOperation = Aggregation
+//                .match(new Criteria().andOperator(criteria2.toArray(new Criteria[criteria2.size()])));
+//        LimitOperation limitOperation = null;
+//        SkipOperation skipOperation = null;
+//        SortOperation sortOperation = null;
+//        Aggregation aggregation = null;
+//        if (pageNo != null && pageNo > 0) {
+//            skipOperation = Aggregation.skip((((pageNo - 1) * 8L)));
+//            limitOperation = Aggregation.limit(pageNo * 8);
+//        }
+//
+//        if (sort != null && sort != 0 && sortedColumn != null) {
+//            sortOperation = Aggregation.sort(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
+//                    getTestcaseColumnName.get(sortedColumn.toLowerCase()));
+//        }
+//
+//        if (pageNo != null && (sort == null || sortedColumn == null)) {
+//            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation, limitOperation, skipOperation);
+//        } else if (pageNo == null && sort != null && sortedColumn != null) {
+//            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation, sortOperation);
+//        } else if (pageNo != null) {
+//            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation, sortOperation, skipOperation,
+//                    limitOperation);
+//        } else {
+//            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation);
+//        }
+//
+//        CountOperation countOperation = new CountOperation("tc_run_id");
+//        Aggregation countAggregation = Aggregation.newAggregation(lookupOperation, matchOperation, countOperation);
+//        BasicDBObject countResult = mongoOperations.aggregate(countAggregation, "testExe", BasicDBObject.class)
+//                .getUniqueMappedResult();
+//        long count = 0;
+//        if (countResult != null) {
+//            count = ((Number) countResult.get("tc_run_id")).longValue();
+//        }
+//        List<BasicDBObject> results = mongoOperations.aggregate(aggregation, "testExe", BasicDBObject.class)
+//                .getMappedResults();
+//        data.put("count", count);
+//        data.put("results", results);
+//        return data;
+//    }
 
-        LookupOperation lookupOperation = LookupOperation.newLookup()
-                .from("suiteExe")
-                .localField("s_run_id")
-                .foreignField("s_run_id")
-                .as("result");
-        MatchOperation matchOperation = Aggregation
-                .match(new Criteria().andOperator(criteria2.toArray(new Criteria[criteria2.size()])));
-        LimitOperation limitOperation = null;
-        SkipOperation skipOperation = null;
-        SortOperation sortOperation = null;
-        Aggregation aggregation = null;
-        if (pageNo != null && pageNo > 0) {
-            skipOperation = Aggregation.skip((long) ((pageNo - 1) * 8));
-            limitOperation = Aggregation.limit(pageNo * 8);
-        }
-
-        if (sort != null && sort != 0 && sortedColumn != null) {
-            sortOperation = Aggregation.sort(sort == 1 ? Sort.Direction.ASC : Sort.Direction.DESC,
-                    getTestcaseColumnName.get(sortedColumn.toLowerCase()));
-        }
-
-        if (pageNo != null && (sort == null || sortedColumn == null)) {
-
-            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation, limitOperation, skipOperation);
-        } else if (pageNo == null && sort != null && sortedColumn != null) {
-
-            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation, sortOperation);
-
-        } else if (pageNo != null) {
-
-            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation, sortOperation, skipOperation,
-                    limitOperation);
-        } else {
-            aggregation = Aggregation.newAggregation(lookupOperation, matchOperation);
-        }
-
-        CountOperation countOperation = new CountOperation("tc_run_id");
-        Aggregation countAggregation = Aggregation.newAggregation(lookupOperation, matchOperation, countOperation);
-        BasicDBObject countResult = mongoOperations.aggregate(countAggregation, "testExe", BasicDBObject.class)
-                .getUniqueMappedResult();
-        long count = 0;
-        if (countResult != null) {
-            count = ((Number) countResult.get("tc_run_id")).longValue();
-        }
-        List<BasicDBObject> results = mongoOperations.aggregate(aggregation, "testExe", BasicDBObject.class)
-                .getMappedResults();
-        data.put("count", count);
-        data.put("results", results);
-        return data;
-    }
-
-    public static Map<String, String> getTestcaseColumnName() {
-        Map<String, String> columns = new HashMap<>();
-        columns.put("name", "name");
-        columns.put("category", "category");
-        columns.put("status", "status");
-        columns.put("user", "user");
-        columns.put("product Type", "product_type");
-        columns.put("start time", "start_time");
-        columns.put("end time", "end_time");
-        columns.put("machine", "machine");
-        return columns;
-    }
+//    public static Map<String, String> getTestcaseColumnName() {
+//        Map<String, String> columns = new HashMap<>();
+//        columns.put("name", "name");
+//        columns.put("category", "category");
+//        columns.put("status", "status");
+//        columns.put("user", "user");
+//        columns.put("product Type", "product_type");
+//        columns.put("start time", "start_time");
+//        columns.put("end time", "end_time");
+//        columns.put("machine", "machine");
+//        return columns;
+//    }
 
 //    public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
 //
@@ -330,49 +325,49 @@ public class ReportUtils {
 //        return res;
 //    }
 
-        public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
-
-        if (suites.size() == 1) {
-            if (suites.get(0).getStatus().equalsIgnoreCase("FAIL")) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-        double denominator = Math.floor(suites.size() / (double) 2);
-
-        double numerator = 0;
-        int count = 0;
-        SuiteExeDto curr = null;
-        SuiteExeDto prev = null;
-
-        for (SuiteExeDto suite : suites) {
-
-            if (curr == null && prev == null) {
-                if (suite.getStatus().equalsIgnoreCase("FAIL")) {
-                    count++;
-                }
-                curr = suite;
-            } else {
-                if (suite.getStatus().equalsIgnoreCase("FAIL")) {
-                    count++;
-                }
-                prev = curr;
-                curr = suite;
-                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
-                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
-                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
-                    numerator++;
-                }
-
-            }
-        }
-        if (count == suites.size()) {
-            return 1;
-        }
-        double res = Math.round((float) (numerator / denominator) * 100.0) / 100.0;
-        return res;
-    }
+//        public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
+//
+//        if (suites.size() == 1) {
+//            if (suites.get(0).getStatus().equalsIgnoreCase("FAIL")) {
+//                return 1;
+//            } else {
+//                return 0;
+//            }
+//        }
+//        double denominator = Math.floor(suites.size() / (double) 2);
+//
+//        double numerator = 0;
+//        int count = 0;
+//        SuiteExeDto curr = null;
+//        SuiteExeDto prev = null;
+//
+//        for (SuiteExeDto suite : suites) {
+//
+//            if (curr == null && prev == null) {
+//                if (suite.getStatus().equalsIgnoreCase("FAIL")) {
+//                    count++;
+//                }
+//                curr = suite;
+//            } else {
+//                if (suite.getStatus().equalsIgnoreCase("FAIL")) {
+//                    count++;
+//                }
+//                prev = curr;
+//                curr = suite;
+//                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
+//                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
+//                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
+//                    numerator++;
+//                }
+//
+//            }
+//        }
+//        if (count == suites.size()) {
+//            return 1;
+//        }
+//        double res = Math.round((float) (numerator / denominator) * 100.0) / 100.0;
+//        return res;
+//    }
 
     public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
         if (testExes.isEmpty()) {
@@ -383,7 +378,6 @@ public class ReportUtils {
         int transitions = 0;
 
         TestExeCommonDto prevTestExe = testExes.get(0);
-
         for (int i = 1; i < totalTestExes; i++) {
             TestExeCommonDto currentTestExe = testExes.get(i);
             if (currentTestExe.getStatus().equalsIgnoreCase("FAIL")) {
@@ -403,35 +397,35 @@ public class ReportUtils {
         return Math.round((double) transitions / (totalTestExes - 1) * 100.0) / 100.0;
     }
 
-//    public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
-//        if (suites.isEmpty()) {
-//            return 0;
-//        }
-//        int totalSuites = suites.size();
-//        int failCount = 0;
-//        int transitions = 0;
-//
-//        SuiteExeDto prevSuite = suites.get(0);
-//
-//        for (int i = 1; i < totalSuites; i++) {
-//            SuiteExeDto currentSuite = suites.get(i);
-//            if (currentSuite.getStatus().equalsIgnoreCase("FAIL")) {
-//                failCount++;
-//            }
-//            if (isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
-//                transitions++;
-//            }
-//            prevSuite = currentSuite;
-//        }
-//        if (failCount == totalSuites) {
-//            return 1.0;
-//        }
-//        if (transitions == 0) {
-//            return 0.0;
-//        }
-//
-//        return Math.round((double) transitions / (totalSuites - 1) * 100.0) / 100.0;
-//    }
+    public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
+        if (suites.isEmpty()) {
+            return 0;
+        }
+        int totalSuites = suites.size();
+        int failCount = 0;
+        int transitions = 0;
+
+        SuiteExeDto prevSuite = suites.get(0);
+
+        for (int i = 1; i < totalSuites; i++) {
+            SuiteExeDto currentSuite = suites.get(i);
+            if (currentSuite.getStatus().equalsIgnoreCase("FAIL")) {
+                failCount++;
+            }
+            if (isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
+                transitions++;
+            }
+            prevSuite = currentSuite;
+        }
+        if (failCount == totalSuites) {
+            return 1.0;
+        }
+        if (transitions == 0) {
+            return 0.0;
+        }
+
+        return Math.round((double) transitions / (totalSuites - 1) * 100.0) / 100.0;
+    }
 
     private static boolean isTransition(String status1, String status2) {
         // Define your transition logic here
