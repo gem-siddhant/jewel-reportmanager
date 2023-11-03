@@ -28,8 +28,7 @@ import java.util.stream.Collectors;
 import static com.jewel.reportmanager.enums.OperationType.*;
 import static com.jewel.reportmanager.enums.StatusColor.*;
 import static com.jewel.reportmanager.enums.UserRole.*;
-import static com.jewel.reportmanager.utils.ReportConstants.*;
-import static com.jewel.reportmanager.utils.ReportConstants.NEVER_FIXED;
+import static com.jewel.reportmanager.utils.ReportResponseConstants.NEVER_FIXED;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
 import static javax.accessibility.AccessibleState.ACTIVE;
 

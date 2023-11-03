@@ -18,8 +18,7 @@ import org.springframework.stereotype.Service;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
 import static com.jewel.reportmanager.enums.OperationType.*;
-import static com.jewel.reportmanager.utils.Constants.*;
-import static com.jewel.reportmanager.utils.ReportConstants.REQUEST_ACCESS;
+import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
 
 @Slf4j
 @Service

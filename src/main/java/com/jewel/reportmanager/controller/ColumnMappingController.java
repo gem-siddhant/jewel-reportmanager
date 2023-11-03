@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.jewel.reportmanager.enums.OperationType.*;
-import static com.jewel.reportmanager.utils.Constants.*;
+import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
 
 @Validated
 @RestController
@@ -50,7 +50,6 @@ public class ColumnMappingController {
         }
     }
 
-
     @Operation(summary = "Update an existing column mapping", description = "Updates an existing column mapping based on the provided data.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Column mapping updated successfully.", content = {
@@ -67,7 +66,6 @@ public class ColumnMappingController {
         }
     }
 
-
     @Operation(summary = "Delete a column mapping", description = "Deletes a column mapping based on its ID.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Column mapping deleted successfully.", content = {
@@ -82,7 +80,6 @@ public class ColumnMappingController {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
         }
     }
-
 
     @Operation(summary = "Find column mapping details", description = "Finds column mapping details based on PID, name, and frameworks.")
     @ApiResponses(value = {

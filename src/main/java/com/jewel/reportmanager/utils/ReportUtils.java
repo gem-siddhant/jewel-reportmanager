@@ -32,9 +32,7 @@ import java.util.stream.Collectors;
 import static com.jewel.reportmanager.enums.OperationType.FAILURE;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
 import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
-import static com.jewel.reportmanager.utils.ReportConstants.NEVER_FIXED;
-import static com.jewel.reportmanager.utils.ReportConstants.NO_ISSUES;
-import static com.jewel.reportmanager.utils.ReportResponseConstants.USER_DETAILS_NOT_FOUND;
+import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
 
 @Slf4j
 @Service

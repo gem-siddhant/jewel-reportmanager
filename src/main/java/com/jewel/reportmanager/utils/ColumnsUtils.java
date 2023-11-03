@@ -7,15 +7,10 @@ import com.jewel.reportmanager.enums.UserRole;
 import com.jewel.reportmanager.service.JwtHelperService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
-import java.util.Map;
 
-import static com.jewel.reportmanager.utils.ReportConstants.ACTIVE_STATUS;
+import static com.jewel.reportmanager.utils.ReportResponseConstants.ACTIVE_STATUS;
 
 public class ColumnsUtils {
 
