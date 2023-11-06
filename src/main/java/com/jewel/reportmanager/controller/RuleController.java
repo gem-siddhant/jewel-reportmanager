@@ -48,7 +48,7 @@ public class RuleController {
                                                           @RequestParam(value = "sort", required = false) final Integer sort,
                                                           @RequestParam(value = "sortedColumn", required = false) final String sortedColumn) {
         try {
-            return ResponseEntity.ok(ruleService.getRuleActionReportV3(s_run_id, tc_run_id, request, pageNo, sort, sortedColumn));
+            return ResponseEntity.ok(ruleService.getRuleActionReportV3(s_run_id, tc_run_id, pageNo, sort, sortedColumn));
         } catch (CustomDataException ex) {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType(), ex.getSubOperationType()));
         }

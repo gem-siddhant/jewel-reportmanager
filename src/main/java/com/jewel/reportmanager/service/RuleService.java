@@ -1,9 +1,6 @@
 package com.jewel.reportmanager.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jewel.reportmanager.dto.*;
-import com.jewel.reportmanager.dto.StepsDto;
-import com.jewel.reportmanager.dto.ClassificationDetails;
 import com.jewel.reportmanager.dto.RuleApi;
 import com.jewel.reportmanager.enums.OperationType;
 import com.jewel.reportmanager.enums.StatusColor;
@@ -23,7 +20,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.jewel.reportmanager.enums.OperationType.*;
 import static com.jewel.reportmanager.enums.StatusColor.*;
@@ -935,14 +931,15 @@ public class RuleService {
         return new Response(result, listMap.size() + " Records found", SUCCESS);
     }
 
-    public Response getRuleActionReportV3(String s_run_id, String tc_run_id, HttpServletRequest request, Integer pageNo, Integer sort, String sortedColumn) {
+    public Response getRuleActionReportV3(String s_run_id, String tc_run_id, Integer pageNo, Integer sort, String sortedColumn) {
         if (tc_run_id == null) {
 
-            if ((sort != null && sortedColumn == null) || (sort == null && sortedColumn != null)) {
+            if (sort == null || sortedColumn == null) {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, FAILURE, HttpStatus.OK);
             }
-            if (sort != null && sort != -1 && sort != 0 && sort != 1) {
+
+            if (!List.of(-1, 0, 1).contains(sort)) {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(INVALID_SORT_VALUE, null, FAILURE, HttpStatus.OK);
             }
@@ -952,7 +949,6 @@ public class RuleService {
                 throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
             }
 
-            Map<String, Object> result = new HashMap<>();
             SuiteExeDto getSuite = RestApiUtils.getSuiteExe(s_run_id);
 
             if (getSuite == null) {
@@ -962,9 +958,9 @@ public class RuleService {
 
             List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
             Map<Long, VarianceClassificationDto> varianceList = new HashMap<>();
-            List<Long> varinaceIds = new ArrayList<>();
+            List<Long> varianceIds = new ArrayList<>();
             for (VarianceClassificationDto varianceClassification : varianceClassificationList) {
-                varinaceIds.add(varianceClassification.getVarianceId());
+                varianceIds.add(varianceClassification.getVarianceId());
                 varianceList.put(varianceClassification.getVarianceId(), varianceClassification);
             }
 
@@ -979,259 +975,40 @@ public class RuleService {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
             }
+
+            Map<String, Object> result = new HashMap<>();
             if (getSuite.getStatus().equalsIgnoreCase("EXE")) {
                 String expectedStatus = "PASS";
-                int current_priority = Integer.MAX_VALUE;
+                int currentPriority = Integer.MAX_VALUE;
                 result.put("status", getSuite.getStatus());
 
                 Map<String, Object> testcaseDetails = new HashMap<>();
                 Map<String, List<Map<String, Object>>> statusFilterMap = new HashMap<>();
 
-                List<Map<String, Object>> testcaseDetailsdata = new ArrayList<>();
+                List<Map<String, Object>> testcaseDetailsData = new ArrayList<>();
                 Set<String> testcaseDetailsHeaders = new LinkedHashSet<>();
-
-                if (pageNo != null && pageNo <= 0) {
-                    log.error("Error occurred due to records not found");
-                    throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
-                }
-
 
                 Map<String, Object> statusSubType = new HashMap<>();
                 statusSubType.put("subType", "falseVariance");
                 List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
                 if (!tempTest.isEmpty()) {
-                    Set<String> frameworks = new HashSet<>();
-                    List<String> statuses = new ArrayList<>();
-                    long testcaseCountWithoutExe = 0L;
-                    boolean suiteVarianceIsActive = false;
-                    boolean suiteVarianceIsThere = false;
-                    boolean suiteFalsePositiveIsActive = false;
-                    boolean suiteFalsePositiveIsThere = false;
-                    for (TestExeDto testExe : tempTest) {
-                        boolean clickable = false;
-                        boolean varianceIsActive = false;
-                        boolean varianceIsThere = false;
-                        boolean falsePositiveIsActive = false;
-                        boolean falsePositiveIsThere = false;
-                        if (testExe.getVarianceId() != null || (testExe.getStepVarianceIds() != null && !testExe.getStepVarianceIds().isEmpty()) || testExe.getClassificationDetails() != null) {
-                            if (testExe.getVarianceId() != null || (testExe.getStepVarianceIds() != null && !testExe.getStepVarianceIds().isEmpty())) {
-                                varianceIsThere = true;
-                                suiteVarianceIsThere = true;
-                                VarianceClassificationDto varianceClassification = varianceList.getOrDefault(testExe.getVarianceId(), null);
-                                if (varianceClassification != null) {
-                                    varianceIsActive = true;
-                                    suiteVarianceIsActive = true;
-                                    clickable = true;
-                                    testExe.setStatus("PASS");
-                                }
-                                if (ReportUtils.checkoneListContainsElementOfAnotherList(varinaceIds, testExe.getStepVarianceIds())) {
-                                    varianceIsActive = true;
-                                    suiteVarianceIsActive = true;
-                                    testExe.setStatus(ReportUtils.checkStatusOfTestCaseByStepsIfVarianceIsThere(testExe.getTc_run_id(), varianceList));
-                                }
-                            }
-                            if (testExe.getClassificationDetails() != null) {
-                                suiteFalsePositiveIsThere = true;
-                                falsePositiveIsThere = true;
-                                if (testExe.getClassificationDetails().isFalsePositiveStatus()) {
-                                    suiteFalsePositiveIsActive = true;
-                                    falsePositiveIsActive = true;
-                                    clickable = true;
-                                }
-                                if (testExe.getClassificationDetails().isChildFalsePostiveStatus()) {
-                                    suiteFalsePositiveIsActive = true;
-                                    falsePositiveIsActive = true;
-                                }
-                            }
-                        }
-                        ObjectMapper oMapper = new ObjectMapper();
-                        LinkedHashMap<String, Object> map = oMapper.convertValue(testExe, LinkedHashMap.class);
-                        if (testExe.getUser_defined_data() != null) {
-                            map.putAll(testExe.getUser_defined_data());
-                        }
-                        map.remove("user_defined_data");
-                        map.remove("steps");
-                        map.remove("meta_data");
-                        map.remove("ignore");
-                        map.remove("log_file");
-                        map.remove("result_file");
-                        map.remove("s_run_id");
-                        map.remove("tc_run_id");
-                        testcaseDetailsHeaders.remove("classificationDetails");
-                        testcaseDetailsHeaders.remove("stepVarianceIds");
-                        testcaseDetailsHeaders.addAll(map.keySet());
-
-
-                        testcaseDetails.put("headers", testcaseDetailsHeaders);
-                        Map<String, Object> temp = new HashMap<>();
-
-                        for (String key : map.keySet()) {
-
-                            if (key.equalsIgnoreCase("start_time") || key.equalsIgnoreCase("end_time")) {
-                                Map<String, Object> timereport = new HashMap<>();
-                                timereport.put("subType", "datetime");
-                                temp.put(ReportUtils.changeKeyValue(key),
-                                        ReportUtils.createCustomObject(map.get(key), "date", map.get(key), "center",
-                                                timereport));
-                            } else if (key.equalsIgnoreCase("status")) {
-                                temp.put(ReportUtils.changeKeyValue(key),
-                                        ReportUtils.createCustomObject(map.get(key), "crud", map.get(key),
-                                                "center", statusSubType));
-                            } else {
-                                temp.put(ReportUtils.changeKeyValue(key),
-                                        ReportUtils.createCustomObject(map.get(key), "text", map.get(key), "left"));
-
-                            }
-
-                        }
-                        if (testExe.getStatus().equalsIgnoreCase("FAIL") || testExe.getStatus().equalsIgnoreCase("ERR")) {
-                            temp.put("EDIT_ICON", ReportUtils.createCustomObject(ACTIVE_STATUS, "text", ACTIVE_STATUS, "left"));
-                        } else {
-                            temp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                        }
-                        if (varianceIsActive) {
-                            temp.put("ISCLICKABLE", ReportUtils.createCustomObject(clickable, "text", clickable, "left"));
-                            temp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
-                        } else if (falsePositiveIsActive) {
-                            temp.put("ISCLICKABLE", ReportUtils.createCustomObject(clickable, "text", clickable, "left"));
-                            temp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
-                            if (testExe.getClassificationDetails().getReason() != null && !testExe.getClassificationDetails().getReason().isEmpty())
-                                temp.put("REASON", ReportUtils.createCustomObject(testExe.getClassificationDetails().getReason(), "text", testExe.getClassificationDetails().getReason(), "left"));
-                        } else if (varianceIsThere) {
-                            temp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
-                        } else if (falsePositiveIsThere) {
-                            temp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
-                            if (testExe.getClassificationDetails().getReason() != null && !testExe.getClassificationDetails().getReason().isEmpty())
-                                temp.put("REASON", ReportUtils.createCustomObject(testExe.getClassificationDetails().getReason(), "text", testExe.getClassificationDetails().getReason(), "left"));
-                        }
-                        statuses.add(testExe.getStatus());
-                        frameworks.add(testExe.getProduct_type());
-                        if (!testExe.getStatus().equalsIgnoreCase("EXE")) {
-                            testcaseCountWithoutExe += 1;
-                        }
-
-                        temp.put("VARIANCEID", ReportUtils.createCustomObject(testExe.getVarianceId(), "text", testExe.getVarianceId(), "left"));
-                        temp.put("TC_RUN_ID", ReportUtils.createCustomObject(testExe.getTc_run_id(), "text", testExe.getTc_run_id(), "left"));
-                        temp.remove("STEPVARIANCEIDS");
-                        temp.remove("CLASSIFICATIONDETAILS");
-                        List<Map<String, Object>> statusMap = statusFilterMap.getOrDefault(testExe.getStatus().toUpperCase(), null);
-                        if (statusMap == null) {
-                            statusMap = new ArrayList<>();
-                        }
-                        statusMap.add(temp);
-                        statusFilterMap.put(testExe.getStatus().toUpperCase(), statusMap);
-                    }
-                    if (statusFilterMap.getOrDefault("EXE", null) != null) {
-                        testcaseDetailsdata.addAll(statusFilterMap.getOrDefault("EXE", null));
-                        statusFilterMap.put("EXE", null);
-                    }
-                    for (StatusColor statusColor : ReportUtils.getStatusColorInSorted()) {
-                        if (statusFilterMap.getOrDefault(statusColor.toString().toUpperCase(), null) != null) {
-                            testcaseDetailsdata.addAll(statusFilterMap.getOrDefault(statusColor.toString().toUpperCase(), null));
-                        }
-                    }
-                    testcaseDetailsHeaders.remove("varianceId");
-                    testcaseDetails.put("data", testcaseDetailsdata);
-                    testcaseDetails.put("headers", testcaseDetailsHeaders);
-                    Map<String, Object> iconMap = new HashMap<>();
-                    if (suiteVarianceIsActive) {
-                        iconMap = ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left");
-                    } else if (suiteFalsePositiveIsActive) {
-                        iconMap = ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left");
-                    } else if (suiteVarianceIsThere) {
-                        iconMap = ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left");
-                    } else if (suiteFalsePositiveIsThere) {
-                        iconMap = ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left");
-                    }
-                    Map<String, Long> testcaseInfo = new TreeMap<String, Long>(Collections.reverseOrder());
-                    if (statuses != null) {
-                        for (String status : statuses) {
-                            testcaseInfo.put(status, ReportUtils.getStatuswiseCount(getSuite.getS_run_id(), status));
-                            if (StatusColor.valueOf(status.toUpperCase()).priority < current_priority) {
-                                System.out.println(
-                                        StatusColor.valueOf(status.toUpperCase()).priority + "-----" + current_priority);
-                                expectedStatus = status.toUpperCase();
-                                current_priority = StatusColor.valueOf(status.toUpperCase()).priority;
-                                System.out.println("------" + StatusColor.valueOf(status.toUpperCase()).priority);
-                            }
-                        }
-                        Long sumOthers = 0L;
-
-                        Iterator<Map.Entry<String, Long>> iterator = testcaseInfo.entrySet().iterator();
-
-                        while (iterator.hasNext()) {
-
-                            Map.Entry<String, Long> entry = iterator.next();
-
-                            if (!(entry.getKey().equalsIgnoreCase("PASS") || entry.getKey().equalsIgnoreCase("FAIL"))) {
-                                sumOthers += entry.getValue();
-                                iterator.remove();
-                            }
-                        }
-
-                        testcaseInfo.put("OTHERS", sumOthers);
-
-                    }
-                    if (expectedStatus.equalsIgnoreCase("EXE")) {
-                        expectedStatus = "PASS";
-                    }
-                    Map<String, Object> exe_data = new HashMap<>();
-                    Map<String, Object> testcase_progress = new HashMap<>();
-                    Map<String, Object> expected_status = new HashMap<>();
-                    expected_status.put("expected", expectedStatus);
-                    expected_status.put("current", getSuite.getStatus());
-                    testcase_progress.put("expected",
-                            getSuite.getExpected_testcases() != null ? getSuite.getExpected_testcases() : 0);
-                    testcase_progress.put("executed", testcaseCountWithoutExe);
-
-                    SuiteRun suiteRunData = RestApiUtils.getSuiteRun(getSuite.getS_run_id());
-                    List<List<DependencyTree>> ans = new ArrayList<>();
-                    assert suiteRunData != null;
-                    for (SuiteRunValues suiteRunValues : suiteRunData.getValues()) {
-                        if (suiteRunValues.getExpected_testcases() != null) {
-                            ans.addAll(suiteRunValues.getExpected_testcases());
-                        }
-                    }
-                    exe_data.put("testcase_progress", testcase_progress);
-                    exe_data.put("expected_status", expected_status);
-
-                    exe_data.put("expected_completion",
-                            Math.round(ReportUtils.getTimeRemainingNew(getSuite, ans)));
-                    result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
-
-                    if (statuses.isEmpty()) {
-                        testcaseInfo = null;
-                    }
-                    result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarinceAndFalsePositive(getSuite, iconMap));
-                    exe_data.put("testcase_info", testcaseInfo);
-                    List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), frameworks.stream().collect(Collectors.toList()));
-                    if (columns != null && !columns.isEmpty()) {
-                        List<String> headers = new ArrayList<>();
-                        for (String header : testcaseDetailsHeaders) {
-                            headers.add(header.replace(" ", "_").toLowerCase());
-                        }
-                        List<String> finalHeaders = new ArrayList<>();
-                        for (String column : columns) {
-                            String value = column.toLowerCase().replace(" ", "_");
-                            if (headers.contains(value)) {
-                                finalHeaders.add(value);
-                                headers.remove(value);
-                            }
-                        }
-                        testcaseDetails.put("headers", finalHeaders);
-                        testcaseDetails.put("filterHeaders", headers);
-                        testcaseDetails.replace("headers", ReportUtils.headersDataRefactor((List<String>) testcaseDetails.get("headers")));
-                        testcaseDetails.replace("filterHeaders", ReportUtils.headersDataRefactor((List<String>) testcaseDetails.get("filterHeaders")));
-                        result.put("exe_data", exe_data);
-                        result.put("TestCase_Details", testcaseDetails);
-                    } else {
-                        List<String> data = new ArrayList<>();
-                        data.addAll((Set<String>) testcaseDetails.get("headers"));
-                        testcaseDetails.replace("headers", ReportUtils.headersDataRefactor(data));
-                        result.put("exe_data", exe_data);
-                        result.put("TestCase_Details", testcaseDetails);
-                    }
-                } else {
+                    ReportUtils.populateResultWithTestExes(
+                            tempTest,
+                            varianceList,
+                            varianceIds,
+                            testcaseDetailsHeaders,
+                            testcaseDetails,
+                            statusSubType,
+                            statusFilterMap,
+                            testcaseDetailsData,
+                            getSuite,
+                            currentPriority,
+                            expectedStatus,
+                            result,
+                            project
+                    );
+                }
+                else {
                     Map<String, Object> exe_data = new HashMap<>();
                     Map<String, Object> testcase_progress = new HashMap<>();
                     Map<String, Object> expected_status = new HashMap<>();
@@ -1244,6 +1021,7 @@ public class RuleService {
 
                     SuiteRun suiteRunData = RestApiUtils.getSuiteRun(getSuite.getS_run_id());
                     List<List<DependencyTree>> ans = new ArrayList<>();
+                    assert suiteRunData != null;
                     for (SuiteRunValues suiteRunValues : suiteRunData.getValues()) {
                         if (suiteRunValues.getExpected_testcases() != null) {
                             ans.addAll(suiteRunValues.getExpected_testcases());
@@ -1253,540 +1031,33 @@ public class RuleService {
                     result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarinceAndFalsePositive(getSuite, null));
                     exe_data.put("testcase_progress", testcase_progress);
                     exe_data.put("expected_status", expected_status);
-                    Date unixTime = new Date();
                     exe_data.put("expected_completion",
                             Math.round(ReportUtils.getTimeRemainingNew(getSuite, ans)));
                     result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
-                    testcase_progress.put("executed",
-                            testcaseDetailsdata != null ? testcaseDetailsdata.size() : 0);
+                    testcase_progress.put("executed", testcaseDetailsData.size());
                     result.put("exe_data", exe_data);
                     result.put("TestCase_Details", null);
                 }
 
                 return new Response(result, EXE_REPORT_SUCCESSFULLY_FETCHED, SUCCESS);
-            } else {
-                Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
-                if (last5RunsBarGraph != null) {
-                    result.put("Last_5_Runs_Bar_Chart", last5RunsBarGraph);
-                }
-                Map<String, Object> testcaseDetails = new HashMap<>();
-                List<Map<String, Object>> testcaseDetailsdata = new ArrayList<>();
-                Map<String, List<Map<String, Object>>> statusFilterMap = new HashMap<>();
-                Set<String> testcaseDetailsHeaders = new LinkedHashSet<>();
-
-                if (getSuite.getTestcase_details() == null) {
-                    log.error("Error occurred due to records not found");
-                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
-                }
-                long count = getSuite.getTestcase_details().size();
-                if (count == 0) {
-                    log.error("Error occurred due to records not found");
-                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, FAILURE, HttpStatus.OK);
-                }
-                if (pageNo != null && pageNo <= 0) {
-                    log.error("Error occurred due to records not found");
-                    throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
-                }
-
-                List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
-                if (tempTest.isEmpty()) {
-                    log.error("Error occurred due to records not found");
-                    throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
-                }
-
-                Set<String> frameworks = new HashSet<>();
-                Set<String> category = new HashSet<>();
-                Map<String, Long> categoryMap = new HashMap<>();
-                List<String> statues = new ArrayList<>();
-                boolean suiteVarianceIsActive = false;
-                boolean suiteVarianceIsThere = false;
-                boolean suiteFalsePositiveIsActive = false;
-                boolean suiteFalsePositiveIsThere = false;
-                HashSet<String> statusesSet = new HashSet<>();
-                Map<String, Object> statusSubType = new HashMap<>();
-                statusSubType.put("subType", "falseVariance");
-                for (TestExeDto testExe : tempTest) {
-                    boolean clickable = false;
-                    boolean varianceIsActive = false;
-                    boolean varianceIsThere = false;
-                    boolean falsePositiveIsActive = false;
-                    boolean falsePositiveIsThere = false;
-                    if (testExe.getVarianceId() != null || (testExe.getStepVarianceIds() != null && testExe.getStepVarianceIds().size() > 0) || testExe.getClassificationDetails() != null) {
-                        if (testExe.getVarianceId() != null || (testExe.getStepVarianceIds() != null && testExe.getStepVarianceIds().size() > 0)) {
-                            varianceIsThere = true;
-                            suiteVarianceIsThere = true;
-                            VarianceClassificationDto varianceClassification = varianceList.getOrDefault(testExe.getVarianceId(), null);
-                            if (varianceClassification != null) {
-                                varianceIsActive = true;
-                                suiteVarianceIsActive = true;
-                                clickable = true;
-                                testExe.setStatus("PASS");
-                            }
-                            if (ReportUtils.checkoneListContainsElementOfAnotherList(varinaceIds, testExe.getStepVarianceIds())) {
-                                varianceIsActive = true;
-                                suiteVarianceIsActive = true;
-                                testExe.setStatus(ReportUtils.checkStatusOfTestCaseByStepsIfVarianceIsThere(testExe.getTc_run_id(), varianceList));
-                            }
-                        }
-                        if (testExe.getClassificationDetails() != null) {
-                            suiteFalsePositiveIsThere = true;
-                            falsePositiveIsThere = true;
-                            if (testExe.getClassificationDetails().isFalsePositiveStatus()) {
-                                suiteFalsePositiveIsActive = true;
-                                falsePositiveIsActive = true;
-                                clickable = true;
-                            }
-                            if (testExe.getClassificationDetails().isChildFalsePostiveStatus()) {
-                                suiteFalsePositiveIsActive = true;
-                                falsePositiveIsActive = true;
-                            }
-                        }
-                    }
-                    ObjectMapper oMapper = new ObjectMapper();
-                    LinkedHashMap<String, Object> map = oMapper.convertValue(testExe, LinkedHashMap.class);
-                    if (testExe.getUser_defined_data() != null) {
-                        map.putAll(testExe.getUser_defined_data());
-                    }
-                    map.remove("user_defined_data");
-                    map.remove("steps");
-                    map.remove("meta_data");
-                    map.remove("ignore");
-                    map.remove("log_file");
-                    map.remove("result_file");
-
-                    map.remove("tc_run_id");
-                    map.remove("s_run_id");
-
-                    map.remove("classificationDetails");
-                    map.remove("stepVarianceIds");
-                    testcaseDetailsHeaders.addAll(map.keySet());
-                    Map<String, Object> temp = new HashMap<String, Object>();
-                    for (String key : map.keySet()) {
-
-                        if (key.equalsIgnoreCase("start_time") || key.equalsIgnoreCase("end_time")) {
-                            Map<String, Object> timereport = new HashMap<>();
-                            timereport.put("subType", "datetime");
-                            temp.put(ReportUtils.changeKeyValue(key),
-                                    ReportUtils.createCustomObject(map.get(key), "date", map.get(key), "center",
-                                            timereport));
-                        } else if (key.equalsIgnoreCase("status")) {
-                            temp.put(ReportUtils.changeKeyValue(key),
-                                    ReportUtils.createCustomObject(map.get(key), "crud", map.get(key), "center", statusSubType));
-                        } else {
-                            temp.put(ReportUtils.changeKeyValue(key),
-                                    ReportUtils.createCustomObject(map.get(key), "text", map.get(key), "left"));
-
-                        }
-
-                    }
-                    if (testExe.getStatus().equalsIgnoreCase("FAIL") || testExe.getStatus().equalsIgnoreCase("ERR")) {
-                        temp.put("EDIT_ICON", ReportUtils.createCustomObject(ACTIVE_STATUS, "text", ACTIVE_STATUS, "left"));
-                    } else {
-                        temp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                    }
-                    if (varianceIsActive) {
-                        temp.put("ISCLICKABLE", ReportUtils.createCustomObject(clickable, "text", clickable, "left"));
-                        temp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
-                    } else if (falsePositiveIsActive) {
-                        temp.put("ISCLICKABLE", ReportUtils.createCustomObject(clickable, "text", clickable, "left"));
-                        temp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
-                        if (testExe.getClassificationDetails().getReason() != null && !testExe.getClassificationDetails().getReason().isEmpty())
-                            temp.put("REASON", ReportUtils.createCustomObject(testExe.getClassificationDetails().getReason(), "text", testExe.getClassificationDetails().getReason(), "left"));
-                    } else if (varianceIsThere) {
-                        temp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
-                    } else if (falsePositiveIsThere) {
-                        temp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
-                        if (testExe.getClassificationDetails().getReason() != null && !testExe.getClassificationDetails().getReason().isEmpty())
-                            temp.put("REASON", ReportUtils.createCustomObject(testExe.getClassificationDetails().getReason(), "text", testExe.getClassificationDetails().getReason(), "left"));
-                    }
-                    if (testExe.getCategory() != null && testExe.getCategory().getClass().isArray()) {
-                        List<String> categories = Arrays.asList((String[]) testExe.getCategory());
-                        for (String data : categories) {
-                            String category1 = data;
-                            category.add(category1);
-                            categoryMap.put(category1.toUpperCase() + "_" + testExe.getStatus(),
-                                    categoryMap.getOrDefault(category1.toUpperCase() + "_" + testExe.getStatus(), 0L) + 1);
-                        }
-                    } else if (testExe.getCategory() != null) {
-                        String category1 = (String) testExe.getCategory();
-                        category.add(category1);
-                        categoryMap.put(category1.toUpperCase() + "_" + testExe.getStatus(),
-                                categoryMap.getOrDefault(category1.toUpperCase() + "_" + testExe.getStatus(), 0L) + 1);
-                    }
-                    frameworks.add(testExe.getProduct_type());
-                    statusesSet.add(testExe.getStatus());
-                    statues.add(testExe.getStatus());
-                    temp.put("TC_RUN_ID", ReportUtils.createCustomObject(testExe.getTc_run_id(), "text", testExe.getTc_run_id(), "left"));
-                    temp.put("VARIANCEID", ReportUtils.createCustomObject(testExe.getVarianceId(), "text", testExe.getVarianceId(), "left"));
-                    temp.remove("STEPVARIANCEIDS");
-                    temp.remove("CLASSIFICATIONDETAILS");
-
-                    List<Map<String, Object>> statusMap = statusFilterMap.getOrDefault(testExe.getStatus().toUpperCase(), null);
-                    if (statusMap == null) {
-                        statusMap = new ArrayList<>();
-                    }
-                    statusMap.add(temp);
-                    statusFilterMap.put(testExe.getStatus().toUpperCase(), statusMap);
-
-                }
-
-                for (StatusColor statusColor : ReportUtils.getStatusColorInSorted()) {
-                    if (statusFilterMap.getOrDefault(statusColor.toString().toUpperCase(), null) != null) {
-                        testcaseDetailsdata.addAll(statusFilterMap.getOrDefault(statusColor.toString().toUpperCase(), null));
-                    }
-                }
-                testcaseDetails.put("data", testcaseDetailsdata);
-                Map<String, Object> iconMap = new HashMap<>();
-                if (suiteVarianceIsActive) {
-                    iconMap = ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left");
-                } else if (suiteFalsePositiveIsActive) {
-                    iconMap = ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left");
-                } else if (suiteVarianceIsThere) {
-                    iconMap = ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left");
-                } else if (suiteFalsePositiveIsThere) {
-                    iconMap = ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left");
-                }
-                String finalStatus = "";
-                int priority = Integer.MAX_VALUE;
-                for (String status : statusesSet) {
-                    if (StatusColor.valueOf(status.toUpperCase()).priority < priority) {
-                        priority = StatusColor.valueOf(status.toUpperCase()).priority;
-                    }
-                }
-                for (StatusColor val : StatusColor.values()) {
-                    if (val.priority == priority) {
-                        finalStatus = val.name();
-                    }
-                }
-
-                testcaseDetailsHeaders.remove("varianceId");
-                testcaseDetails.put("headers", testcaseDetailsHeaders);
-                getSuite.setStatus(finalStatus);
-                Map<String, Object> testCaseInfo = ReportUtils.testCaseInfoDoughnutChart(statues);
-                if (testCaseInfo != null) {
-                    result.put("Testcase Info", testCaseInfo);
-                }
-                Map<String, Object> CategoryBarChart = ReportUtils.categoryStackedBarChartByS_run_id(categoryMap, category);
-                if (CategoryBarChart != null) {
-                    result.put("Category_Bar_Chart", CategoryBarChart);
-                }
-                result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarinceAndFalsePositive(getSuite, iconMap));
-                result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
-                result.put("status", getSuite.getStatus());
-                List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), frameworks.stream().collect(Collectors.toList()));
-                if (columns != null && columns.size() > 0) {
-                    List<String> headers = new ArrayList<>();
-                    for (String header : testcaseDetailsHeaders) {
-                        headers.add(header.replace(" ", "_").toLowerCase());
-                    }
-                    List<String> finalHeaders = new ArrayList<>();
-                    for (String column : columns) {
-                        String value = column.toLowerCase().replace(" ", "_");
-                        if (headers.contains(value)) {
-                            finalHeaders.add(value);
-                            headers.remove(value);
-                        }
-                    }
-                    testcaseDetails.put("headers", finalHeaders);
-                    testcaseDetails.put("filterHeaders", headers);
-                    testcaseDetails.replace("headers", ReportUtils.headersDataRefactor((List<String>) testcaseDetails.get("headers")));
-                    testcaseDetails.replace("filterHeaders", ReportUtils.headersDataRefactor((List<String>) testcaseDetails.get("filterHeaders")));
-                    result.put("TestCase_Details", testcaseDetails);
-                    result.put("totalElements", getSuite.getTestcase_details().size());
-
-                    return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
-                }
-                List<String> data = new ArrayList<String>();
-                data.addAll((Set<String>) testcaseDetails.get("headers"));
-                testcaseDetails.replace("headers", ReportUtils.headersDataRefactor(data));
-                result.put("TestCase_Details", testcaseDetails);
-                result.put("totalElements", getSuite.getTestcase_details().size());
-
-                return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+            }
+            else {
+                return ReportUtils.populateResultWithoutTestExes(
+                        getSuite,
+                        result,
+                        pageNo,
+                        s_run_id,
+                        sort,
+                        sortedColumn,
+                        varianceList,
+                        varianceIds,
+                        project
+                );
             }
 
-        } else {
-            ObjectMapper oMapper = new ObjectMapper();
-            Map<String, Object> stepData = new HashMap<>();
-            Set<String> stepsListHeaders = new HashSet<>();
-            List<Map<String, Object>> stepsVariableValue = new ArrayList<>();
-
-            TestExeDto tempTest = RestApiUtils.getTestExe(tc_run_id);
-            if (tempTest == null) {
-                log.error("Error occurred due to records not found");
-                throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
-            }
-
-            String username = ReportUtils.getUserDtoFromServetRequest().getUsername();
-
-            UserDto user = ReportUtils.getUserDtoFromServetRequest();
-
-            SuiteExeDto getSuite = RestApiUtils.getSuiteExe(tempTest.getS_run_id());
-            if (getSuite == null) {
-                log.error("Error occurred due to records not found");
-                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
-            }
-            ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
-
-            if (project == null) {
-                log.error("Error occurred due to records not found");
-                throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
-            }
-
-            ProjectRoleDto currentProject = RestApiUtils.getProjectRoleByPidAndUsername(getSuite.getP_id(), username);
-
-            if (currentProject == null && !((user.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
-                log.error("Error occurred due to records not found");
-                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
-            }
-
-            List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
-            Map<Long, VarianceClassificationDto> variannceList = new HashMap<>();
-            List<Long> varinaceIds = new ArrayList<>();
-            for (VarianceClassificationDto varianceClassification : varianceClassificationList) {
-                varinaceIds.add(varianceClassification.getVarianceId());
-                variannceList.put(varianceClassification.getVarianceId(), varianceClassification);
-            }
-            boolean varianceIsActiveAtTestLevel = false;
-            boolean falsePositiveIsActiveAtTestLevel = false;
-            boolean varianceIsThereAtTestLevel = false;
-            boolean falsePositiveIsThereAtTestLevel = false;
-            String statusTestLevel = null;
-            if (tempTest.getVarianceId() != null || tempTest.getClassificationDetails() != null) {
-                if (tempTest.getVarianceId() != null) {
-                    varianceIsThereAtTestLevel = true;
-                }
-                VarianceClassificationDto varianceClassification = variannceList.getOrDefault(tempTest.getVarianceId(), null);
-                if (varianceClassification != null) {
-                    varianceIsActiveAtTestLevel = true;
-                    statusTestLevel = "PASS";
-                }
-                if (tempTest.getClassificationDetails() != null) {
-                    falsePositiveIsThereAtTestLevel = true;
-                    if (tempTest.getClassificationDetails().isFalsePositiveStatus()) {
-                        falsePositiveIsActiveAtTestLevel = true;
-                        statusTestLevel = "PASS";
-                    }
-                }
-            }
-            Map<String, Object> statusSubType = new HashMap<>();
-            statusSubType.put("subType", "falseVariance");
-            List<Map<String, Object>> gallery = new ArrayList<>();
-            StepsDto steps = RestApiUtils.getSteps(tc_run_id);
-            if (steps != null) {
-                List<String> statuesList = new ArrayList<>();
-                for (Object step : steps.getSteps()) {
-                    boolean clickable = false;
-                    boolean varianceIsActive = varianceIsActiveAtTestLevel;
-                    boolean varianceIsThere = varianceIsThereAtTestLevel;
-                    boolean falsePositiveIsActive = falsePositiveIsActiveAtTestLevel;
-                    boolean falsePositiveIsThere = falsePositiveIsThereAtTestLevel;
-                    Map<String, Object> stepMap = oMapper.convertValue(step, Map.class);
-                    stepsListHeaders.addAll(stepMap.keySet());
-                    stepsListHeaders.remove("tc_run_id");
-                    stepsListHeaders.remove("s_run_id");
-                    Map<String, Object> temp = new HashMap<String, Object>();
-                    for (String key : stepsListHeaders) {
-                        String status = statusTestLevel;
-                        String subStepStatus = statusTestLevel;
-                        ClassificationDetails classificationDetails = null;
-                        if (stepsListHeaders.contains("VARIANCEID")) {
-                            Long varianceId = (Long) stepMap.get("VARIANCEID");
-                            varianceIsThere = true;
-                            VarianceClassificationDto varianceClassification = variannceList.getOrDefault(varianceId, null);
-                            if (varianceClassification != null) {
-                                clickable = true;
-                                varianceIsActive = true;
-                                status = "PASS";
-                                subStepStatus = "PASS";
-                            }
-                        }
-                        if (stepsListHeaders.contains("CLASSIFICATIONDETAILS")) {
-                            falsePositiveIsThere = true;
-                            classificationDetails = oMapper.convertValue(stepMap.get("CLASSIFICATIONDETAILS"), ClassificationDetails.class);
-                            if (classificationDetails != null && classificationDetails.isFalsePositiveStatus()) {
-                                clickable = true;
-                                falsePositiveIsActive = true;
-                                subStepStatus = "Pass";
-                            }
-                        }
-                        if (key.equalsIgnoreCase("sub_step")) {
-                            if (stepMap.get("sub_step") != null) {
-                                List<Map<String, Object>> subStepsVariableValue = new ArrayList<Map<String, Object>>();
-                                List<Map<String, Object>> maps = (List<Map<String, Object>>) stepMap.get(key);
-                                Set<String> subStepsHeaders = new HashSet<String>();
-                                for (Map map1 : maps) {
-                                    Map<String, Object> subStepsTemp = new HashMap<String, Object>();
-                                    subStepsHeaders.addAll(map1.keySet());
-                                    for (String key2 : subStepsHeaders) {
-                                        if (key2.equalsIgnoreCase("start_time") || key2.equalsIgnoreCase("end_time")) {
-                                            Map<String, Object> timereport = new HashMap<>();
-                                            timereport.put("subType", "datetime");
-                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                    ReportUtils.createCustomObject(map1.get(key2), "date", map1.get(key2),
-                                                            "center", timereport));
-                                        } else if (key2.equalsIgnoreCase("status")) {
-                                            if (subStepStatus != null) {
-                                                subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                        ReportUtils.createCustomObject(subStepStatus, "crud", subStepStatus,
-                                                                "center", statusSubType));
-                                            } else {
-                                                subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                        ReportUtils.createCustomObject(map1.get(key2), "crud", map1.get(key2),
-                                                                "center", statusSubType));
-                                            }
-                                            subStepsTemp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                                            if (map1.get(key2) != null && (map1.get(key2).toString().equalsIgnoreCase("ERR") || map1.get(key2).toString().equalsIgnoreCase("FAIL")) || (classificationDetails != null && classificationDetails.isFalsePositiveStatus())) {
-                                                if (varianceIsActive) {
-                                                    subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
-                                                    subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
-                                                } else if (falsePositiveIsActive && classificationDetails != null) {
-                                                    subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
-                                                    subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
-                                                    if (classificationDetails != null && classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                                        subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                                } else if (varianceIsThere) {
-                                                    subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
-                                                } else if (falsePositiveIsThere && classificationDetails != null) {
-                                                    subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
-                                                    if (classificationDetails != null && classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                                        subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                                }
-                                            }
-
-                                        } else if (key2.equalsIgnoreCase("screenshot")) {
-                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                    ReportUtils.createCustomObject(map1.get(key2), "image",
-                                                            map1.get(key2),
-                                                            "center"));
-                                            Map<String, Object> screenshot = new HashMap<>();
-                                            if (map1.get(key2) != null) {
-                                                if (map1.get("step name") != null) {
-                                                    screenshot.put(map1.get("step name").toString(), (map1.get(key2)));
-                                                } else {
-                                                    screenshot.put(map1.get("title").toString(), (map1.get(key2)));
-                                                }
-                                                gallery.add(screenshot);
-                                            }
-
-                                        } else {
-                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                    ReportUtils.createCustomObject(map1.get(key2), "text", map1.get(key2),
-                                                            "left"));
-                                        }
-
-                                    }
-                                    subStepsVariableValue.add(subStepsTemp);
-                                }
-                                Map<String, Object> subStepsData = new HashMap<>();
-                                subStepsData.put("data", subStepsVariableValue);
-                                subStepsData.put("headers", ReportUtils.headersDataStepRefactor(subStepsHeaders));
-                                temp.put("SUB_STEPS", subStepsData);
-                            }
-                            continue;
-                        }
-                        if (key.equalsIgnoreCase("start_time") || key.equalsIgnoreCase("end_time")) {
-                            Map<String, Object> timereport = new HashMap<>();
-                            timereport.put("subType", "datetime");
-                            temp.put(ReportUtils.changeKeyValue(key),
-                                    ReportUtils.createCustomObject(stepMap.get(key), "date", stepMap.get(key),
-                                            "center", timereport));
-                        } else if (key.equalsIgnoreCase("status")) {
-                            if (status != null) {
-                                statuesList.add(status);
-                                temp.put(ReportUtils.changeKeyValue(key),
-                                        ReportUtils.createCustomObject(status, "status", status,
-                                                "center"));
-
-                                if (status.equalsIgnoreCase("FAIL") || status.equalsIgnoreCase("ERR") && !varianceIsActive && !falsePositiveIsActive) {
-                                    temp.put("EDIT_ICON", ReportUtils.createCustomObject(ACTIVE_STATUS, "text", ACTIVE_STATUS, "left"));
-                                } else {
-                                    temp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                                }
-                            } else {
-                                String stepStatus = (String) stepMap.get(key);
-                                statuesList.add(stepStatus);
-                                temp.put(ReportUtils.changeKeyValue(key),
-                                        ReportUtils.createCustomObject(stepStatus, "status", stepStatus,
-                                                "center"));
-
-                                if (stepStatus.equalsIgnoreCase("FAIL") || stepStatus.equalsIgnoreCase("ERR") && !varianceIsActive && !falsePositiveIsActive) {
-                                    temp.put("EDIT_ICON", ReportUtils.createCustomObject(ACTIVE_STATUS, "text", ACTIVE_STATUS, "left"));
-                                } else {
-                                    temp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                                }
-                            }
-
-                            if ((stepMap.get(key).toString() != null && (stepMap.get(key).toString().equalsIgnoreCase("ERR") || stepMap.get(key).toString().equalsIgnoreCase("FAIL"))) || (classificationDetails != null && classificationDetails.isFalsePositiveStatus())) {
-                                if (varianceIsActive) {
-                                    temp.put("ISCLICKABLE", ReportUtils.createCustomObject(clickable, "text", clickable, "left"));
-                                    temp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
-                                } else if (falsePositiveIsActive && classificationDetails != null && classificationDetails.isFalsePositiveStatus()) {
-                                    temp.put("ISCLICKABLE", ReportUtils.createCustomObject(clickable, "text", clickable, "left"));
-                                    temp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
-                                    if (classificationDetails != null && classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                        temp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                } else if (varianceIsThere) {
-                                    temp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
-                                } else if (falsePositiveIsThere && classificationDetails != null) {
-                                    temp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
-                                    if (classificationDetails != null && classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                        temp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                }
-                            }
-                        } else if (key.equalsIgnoreCase("screenshot")) {
-                            temp.put(ReportUtils.changeKeyValue(key),
-                                    ReportUtils.createCustomObject(stepMap.get(key), "image",
-                                            stepMap.get(key),
-                                            "center"));
-                            Map<String, Object> screenshot = new HashMap<>();
-                            if (stepMap.get(key) != null) {
-                                if (stepMap.get("step name") != null) {
-                                    screenshot.put(stepMap.get("step name").toString(), (stepMap.get(key)));
-                                } else {
-                                    screenshot.put(stepMap.get("title").toString(), (stepMap.get(key)));
-                                }
-                                gallery.add(screenshot);
-                            }
-                        } else {
-                            temp.put(ReportUtils.changeKeyValue(key),
-                                    ReportUtils.createCustomObject(stepMap.get(key), "text", stepMap.get(key),
-                                            "left"));
-                        }
-                    }
-                    temp.put("PRODUCT TYPE", ReportUtils.createCustomObject(tempTest.getProduct_type(), "text", tempTest.getProduct_type(),
-                            "left"));
-                    temp.remove("CLASSIFICATIONDETAILS");
-                    stepsVariableValue.add(temp);
-                }
-                Map<String, Object> testcase_info = new HashMap<>();
-                for (String status : statuesList) {
-
-                    testcase_info.put(status.toUpperCase(),
-                            Long.valueOf(Long.valueOf(testcase_info.getOrDefault(status.toUpperCase(), 0L).toString()) + 1));
-
-                }
-                if (testcase_info.size() != 0) {
-                    testcase_info.put("TOTAL", Long.valueOf(statuesList.size()));
-                }
-                if (tempTest.getMeta_data() != null && tempTest.getMeta_data().size() >= 3) {
-                    tempTest.getMeta_data().set(2, testcase_info);
-                }
-            }
-
-            stepsListHeaders.remove("sub_step");
-            stepsListHeaders.remove("tc_run_id");
-            stepsListHeaders.remove("s_run_id");
-            stepsListHeaders.remove("CLASSIFICATIONDETAILS");
-            stepsListHeaders.remove("VARIANCEID");
-            stepData.put("headers", ReportUtils.headersDataStepRefactor(stepsListHeaders));
-            stepData.put("metaData", tempTest.getMeta_data());
-            stepData.put("gallery", gallery);
-            stepData.put("data", stepsVariableValue);
-            stepData.put("tc_run_id", tc_run_id);
-
-            return new Response(stepData, "", SUCCESS);
-
+        }
+        else {
+            return ReportUtils.getResultWithTcRunId(tc_run_id);
         }
     }
 
