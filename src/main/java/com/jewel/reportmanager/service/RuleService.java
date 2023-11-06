@@ -35,6 +35,9 @@ public class RuleService {
     @Autowired
     private SimpMessageSendingOperations simpMessagingTemplate;
 
+    @Autowired
+    private ReportUtils reportUtils;
+
     /**
      * @param payload
      * @param pageNo
@@ -992,7 +995,7 @@ public class RuleService {
                 statusSubType.put("subType", "falseVariance");
                 List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
                 if (!tempTest.isEmpty()) {
-                    ReportUtils.populateResultWithTestExes(
+                    reportUtils.populateResultWithTestExes(
                             tempTest,
                             varianceList,
                             varianceIds,
@@ -1042,7 +1045,7 @@ public class RuleService {
                 return new Response(result, EXE_REPORT_SUCCESSFULLY_FETCHED, SUCCESS);
             }
             else {
-                return ReportUtils.populateResultWithoutTestExes(
+                return reportUtils.populateResultWithoutTestExes(
                         getSuite,
                         result,
                         pageNo,
@@ -1057,7 +1060,7 @@ public class RuleService {
 
         }
         else {
-            return ReportUtils.getResultWithTcRunId(tc_run_id);
+            return reportUtils.getResultWithTcRunId(tc_run_id);
         }
     }
 
