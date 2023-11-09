@@ -31,7 +31,8 @@ public class AppConfig {
 
     public static final String[] PUBLIC_URLs = {
             "/swagger-ui/**",
-            "/v3/api-docs/**"
+            "/v3/api-docs/**",
+            "/ws/**"
     };
 
     @Bean
