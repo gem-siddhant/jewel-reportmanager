@@ -1,8 +1,6 @@
 package com.jewel.reportmanager.configuration;
 
 import com.jewel.reportmanager.service.JwtHelperService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -29,8 +27,6 @@ import java.util.List;
 @Order(Ordered.HIGHEST_PRECEDENCE + 99)
 public class WebSocketAuthenticationConfig implements WebSocketMessageBrokerConfigurer {
 
-    private static final Logger logger = LoggerFactory.getLogger(WebSocketAuthenticationConfig.class);
-
     @Autowired
     private JwtHelperService jwtHelper;
 
@@ -45,12 +41,9 @@ public class WebSocketAuthenticationConfig implements WebSocketMessageBrokerConf
                 if (accessor != null) {
                     if (StompCommand.CONNECT.equals(accessor.getCommand())) {
                         List<String> authorization = accessor.getNativeHeader("Authorization");
-                        // logger.debug("Authorization: {}", authorization);
                         if (authorization != null) {
                             String accessToken = authorization.get(0).split(" ")[1];
-
                             String username = jwtHelper.getUserNameFromJwtToken(accessToken);
-                            // System.out.println(username+"nasakjsjksajjksa");
                             GrantedAuthority authority = new SimpleGrantedAuthority(username);
                             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username,
                                     accessToken, Arrays.asList(authority));
