@@ -574,7 +574,7 @@ public class ReportUtils {
         if (CategoryBarChart != null) {
             result.put("Category_Bar_Chart", CategoryBarChart);
         }
-        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarinceAndFalsePositive(getSuite, iconMap));
+        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
         result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
         result.put("status", getSuite.getStatus());
         List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
@@ -714,7 +714,7 @@ public class ReportUtils {
         Map<String, Object> iconMap = getMapAccordingToSuiteVarianceAndFalsePositive(suiteVarianceIsActive, suiteFalsePositiveIsActive, suiteVarianceIsThere, suiteFalsePositiveIsThere);
         Map<String, Long> testcaseInfo = new TreeMap<>(Collections.reverseOrder());
         for (String status : statuses) {
-            testcaseInfo.put(status, ReportUtils.getStatuswiseCount(getSuite.getS_run_id(), status));
+            testcaseInfo.put(status, ReportUtils.getStatusWiseCount(getSuite.getS_run_id(), status));
             if (StatusColor.valueOf(status.toUpperCase()).priority < currentPriority) {
                 log.info(
                         StatusColor.valueOf(status.toUpperCase()).priority + "-----" + currentPriority);
@@ -769,7 +769,7 @@ public class ReportUtils {
         if (statuses.isEmpty()) {
             testcaseInfo = null;
         }
-        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarinceAndFalsePositive(getSuite, iconMap));
+        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
         exeData.put("testcase_info", testcaseInfo);
         List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && !columns.isEmpty()) {
@@ -803,7 +803,7 @@ public class ReportUtils {
     /**
      * @return Username from the httpServletRequest
      */
-    public static String getUsernameFromServetRequest() {
+    public static String getUsernameFromServletRequest() {
         String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         log.info("Username from servlet request: {}", username);
         return username;
@@ -815,7 +815,7 @@ public class ReportUtils {
      * @return user
      */
     public static UserDto getUserDtoFromServetRequest() {
-        String username = getUsernameFromServetRequest();
+        String username = getUsernameFromServletRequest();
         UserDto userDto = getUsernameAndIsDeleted(username, false);
         if (userDto == null) {
             log.error("Error occurred while trying to fetch user for username: {}", username);
@@ -997,18 +997,18 @@ public class ReportUtils {
 //        return data;
 //    }
 
-//    public static Map<String, String> getTestcaseColumnName() {
-//        Map<String, String> columns = new HashMap<>();
-//        columns.put("name", "name");
-//        columns.put("category", "category");
-//        columns.put("status", "status");
-//        columns.put("user", "user");
-//        columns.put("product Type", "product_type");
-//        columns.put("start time", "start_time");
-//        columns.put("end time", "end_time");
-//        columns.put("machine", "machine");
-//        return columns;
-//    }
+    public Map<String, String> getTestcaseColumnName() {
+        Map<String, String> columns = new HashMap<>();
+        columns.put("name", "name");
+        columns.put("category", "category");
+        columns.put("status", "status");
+        columns.put("user", "user");
+        columns.put("product Type", "product_type");
+        columns.put("start time", "start_time");
+        columns.put("end time", "end_time");
+        columns.put("machine", "machine");
+        return columns;
+    }
 
 //    public static double brokenIndexForTestExe(List<TestExeCommonDto> testExes) {
 //
@@ -1509,7 +1509,7 @@ public class ReportUtils {
         return (brokenIndexWeight + downTimeWeight + averageFixTimeWeight + suiteTestCaseWeight + suiteWeight);
     }
 
-    public static long getStatuswiseCount(String s_run_id, String status) {
+    public static long getStatusWiseCount(String s_run_id, String status) {
         Query query = new Query();
         List<Criteria> criteria = new ArrayList<Criteria>();
         criteria.add(Criteria.where("s_run_id").is(s_run_id));
@@ -1528,7 +1528,7 @@ public class ReportUtils {
         return count;
     }
 
-    public Map<String, Long> getStatuswiseCountReportName(String report_name, long starttime, long endtime) {
+    public Map<String, Long> getStatusWiseCountReportName(String report_name, long starttime, long endtime) {
         Map<String, Long> res = new HashMap<String, Long>();
         Query query = new Query();
         List<Criteria> criteria = new ArrayList<Criteria>();
@@ -1550,6 +1550,18 @@ public class ReportUtils {
         }
 
         return res;
+    }
+
+    public List<String> getDistinctStatusFromSRunId(String sRunId) {
+        Query distinctStatus = new Query();
+        distinctStatus.addCriteria(Criteria.where("s_run_id").is(sRunId));
+        return mongoOperations.findDistinct(distinctStatus, "status", TestExeDto.class, String.class);
+    }
+
+    public SuiteRun getSuiteRunFromSRunId(String sRunId) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("s_run_id").is(sRunId));
+        return mongoOperations.findOne(query, SuiteRun.class);
     }
 
     public static List<TestExeCommonDto> getSortedListForTestExeCommon(List<TestExeCommonDto> list) {
@@ -2256,17 +2268,15 @@ public class ReportUtils {
 
 
 
-    public static Object createExecutionHeadersDataWithVarinceAndFalsePositive(SuiteExeDto getSuite, Map<String, Object> iconMap) {
+    public static Object createExecutionHeadersDataWithVarianceAndFalsePositive(SuiteExeDto getSuite, Map<String, Object> iconMap) {
 
-        Map<String, Object> result = new HashMap<String, Object>();
-        List<Object> mainData = new ArrayList<Object>();
-        List<String> headers = new ArrayList<String>();
+        Map<String, Object> result = new HashMap<>();
+        List<Object> mainData = new ArrayList<>();
+        List<String> headers = new ArrayList<>();
 
         Collections.addAll(headers, "Status", "Project Name", "Env", "Report Name", "Start Time", "End Time", "Duration");
         Map<String, Object> data = new HashMap<String, Object>();
-        Map<String, Object> varianceSubHeaders = new HashMap<>();
-        Map<String, Object> statusSubType = new HashMap<>();
-        statusSubType.put("subType", "falseVariance");
+
         data.put("Project Name", createCustomObject(StringUtils.capitalize(getSuite.getProject_name()), "text", getSuite.getProject_name(), "center"));
         data.put("Env", createCustomObject(StringUtils.capitalize(getSuite.getEnv()), "text", getSuite.getEnv(), "center"));
         data.put("Report Name", createCustomObject(StringUtils.capitalize(getSuite.getReport_name()), "text", getSuite.getReport_name(), "center"));
