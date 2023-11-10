@@ -762,7 +762,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("pid", pid);
         uriVariables.put("status", status);
-        return restTemplate.exchange(projectManagerUrl + "/v2/project/pid/status?pid={pid}&status={status}", HttpMethod.GET, httpEntity, ProjectDto.class, uriVariables).getBody();
+        return restTemplate.exchange(projectManagerUrl + "/v1/project/pid/status?pid={pid}&status={status}", HttpMethod.GET, httpEntity, ProjectDto.class, uriVariables).getBody();
     }
 
     /**
@@ -777,7 +777,7 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("varianceId", varianceId);
+        uriVariables.put("varianceId", varianceId.stream().map(Object::toString).collect(Collectors.joining(",")));
         uriVariables.put("varianceStatus", varianceStatus);
         try {
             ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
@@ -844,6 +844,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
+            // TODO: This API does not exists and needs to be made
             ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExesList?s_run_id={s_run_id}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
