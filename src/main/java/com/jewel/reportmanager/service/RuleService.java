@@ -1835,8 +1835,7 @@ public class RuleService {
                 throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, FAILURE, HttpStatus.BAD_REQUEST);
             }
             RestApiUtils.updateSuiteExe(s_run_id, suiteExeDto);
-            Map<String, Object> messageMap = new HashMap<>();
-            messageMap.put(s_run_id, "Updated");
+            Map<String, Object> messageMap = Map.of(s_run_id, "Updated");
             simpMessagingTemplate.convertAndSendToUser(String.valueOf(project.getPid()), "/private", messageMap);
 
             return new Response(null, REPORT_UPDATED_SUCCESSFULLY, SUCCESS);
