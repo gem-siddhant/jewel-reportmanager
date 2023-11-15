@@ -30,6 +30,7 @@ public class RestApiUtils {
     private static String projectManagerUrl;
     private static String gemUrl;
     private static RestTemplate restTemplate;
+    private static String insertionManagerUrl;
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
         RestApiUtils.restTemplate = restTemplate;
@@ -42,6 +43,11 @@ public class RestApiUtils {
     @Value("${gem.url}")
     public void setGemUrl(String gemUrl) {
         RestApiUtils.gemUrl = gemUrl;
+    }
+
+    @Value("${insertion.manager.url}")
+    public void setInsertionManagerUrl(String insertionManagerUrl) {
+        RestApiUtils.insertionManagerUrl = insertionManagerUrl;
     }
 
     /**
@@ -521,7 +527,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         try {
-            return (SuiteExeDto) restTemplate.exchange(gemUrl + "/v2/suitExe?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, SuiteExeDto.class, uriVariables).getBody();
+            return restTemplate.exchange(gemUrl + "/v2/suitExe?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, SuiteExeDto.class, uriVariables).getBody();
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Suite exe is empty for s_run_id: {}", s_run_id);
             return null;
@@ -844,20 +850,14 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            // TODO: This API does not exists and needs to be made
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExesList?s_run_id={s_run_id}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExesList?s_run_id={s_run_id}&page={pageNo}&size=8&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
-            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            return gson.fromJson(json, new TypeToken<List<TestExeDto>>() {
             }.getType());
-            Object data = convertedMap.get("data");
-            Type type = new TypeToken<List<TestExeDto>>() {
-            }.getType();
-
-            return gson.fromJson(gson.toJson(data), type);
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Test exe list is empty for s_run_id: {} pageNo: {}, sort: {} and sortedColumn: {}", s_run_id, pageNo, sort, sortedColumn);
-            return Collections.EMPTY_LIST;
+            return List.of();
         }
     }
 

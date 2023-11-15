@@ -1,12 +1,10 @@
 package com.jewel.reportmanager.controller;
 
-import com.codahale.metrics.annotation.Timed;
 import com.jewel.reportmanager.dto.Response;
 import com.jewel.reportmanager.dto.RuleApiDto;
 import com.jewel.reportmanager.dto.RuleApi;
 import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.service.RuleService;
-import io.swagger.v3.oas.annotations.Hidden;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -55,19 +53,6 @@ public class RuleController {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType(), ex.getSubOperationType()));
         }
     }
-
-    //TODO: Currently in progress
-//    @Timed
-//    @GetMapping(path = "/v2/rule/overview", produces = MediaType.APPLICATION_JSON_VALUE)
-//    @Hidden
-//    public ResponseEntity<Object> getRuleActionReportVersionV2(@RequestParam(required = false) String s_run_id,
-//                                                               @RequestParam(required = false) String tc_run_id, HttpServletRequest request,
-//                                                               @RequestParam(value = "pageNo", required = false) Integer pageNo,
-//                                                               @RequestParam(value = "sort", required = false) Integer sort,
-//                                                               @RequestParam(value = "sortedColumn", required = false) String sortedColumn) {
-//        return ruleService.getRuleActionReportWithoutTestCaseDetails(s_run_id, tc_run_id, request, pageNo, sort,
-//                sortedColumn);
-//    }
 
     @PutMapping(path = "/v1/buildDetails", produces = "application/json")
     public ResponseEntity<Response> updateBuildDetails(@RequestParam(value = "s_run_id") @NotBlank final String s_run_id,
