@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jewel-dashboardmanager
+  name: jewel-reportmanager
   namespace: dev
   labels:
-    app: jewel-dashboardmanager
+    app: jewel-reportmanager
 spec:
   replicas: 1
   revisionHistoryLimit: 0
   selector:
     matchLabels:
-      app: jewel-dashboardmanager
+      app: jewel-reportmanager
   template:
     metadata:
       labels:
-        app: jewel-dashboardmanager
+        app: jewel-reportmanager
     spec:
       containers:
-        - name: jewel-dashboardmanager
-          image: registry-np.geminisolutions.com/gemeco/jewel_dashboard_manager_beta
+        - name: jewel-reportmanager
+          image: registry-np.geminisolutions.com/gemeco/jewel_report_manager_beta
           ports:
-            - name: jewel-dashboardmanager
-              containerPort: 8002
+            - name: jewel-reportmanager
+              containerPort: 8004
           imagePullPolicy: Always
           env:
             - name: ENV
