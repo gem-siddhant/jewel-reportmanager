@@ -26,7 +26,6 @@ import static com.jewel.reportmanager.enums.StatusColor.*;
 import static com.jewel.reportmanager.enums.UserRole.*;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.NEVER_FIXED;
 import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
-import static javax.accessibility.AccessibleState.ACTIVE;
 
 @Slf4j
 @Service
@@ -586,7 +585,6 @@ public class RuleService {
         for (StatusColor statusColor : StatusColor.values()) {
             statusMap.put(statusColor.toString(), 0L);
         }
-        long totalCount = 0;
         for (TestExeDto testExe : testcaseDetails) {
             String status = testExe.getStatus().toUpperCase();
             switch (status) {
@@ -598,7 +596,6 @@ public class RuleService {
                 case "WARN":
                     long value = statusMap.get(status) + 1;
                     statusMap.put(status, value);
-                    totalCount++;
             }
         }
         return statusMap;
@@ -1325,7 +1322,7 @@ public class RuleService {
             throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
         }
 
-        ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE.toString());
+        ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
         if (project == null) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
