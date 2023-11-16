@@ -23,6 +23,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -928,9 +929,36 @@ public class ReportUtils {
         if (project == null) {
             return false;
         }
-        Query query = new Query(Criteria.where("pid").is(project.getPid()).and("username").is(user.getUsername()).and("status").is("ACTIVE"));
-        ProjectRoleDto projectRole = mongoOperations.findOne(query, ProjectRoleDto.class);
+        ProjectRoleDto projectRole = getActiveProjectRole(project.getPid(), user.getUsername());
         return projectRole != null || ((user.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(UserRole.SUPER_ADMIN.toString()));
+    }
+
+    public static ProjectRoleDto getActiveProjectRole(Long pid, String username) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        String url = projectManagerUrl + "/v2/project/role/entity?pid={pid}&userName={username}&status=ACTIVE";
+        uriVariables.put("username", username);
+        uriVariables.put("pid", pid);
+        ProjectRoleDto projectRole;
+        try {
+            ResponseEntity response = restTemplate.exchange(url, HttpMethod.GET, httpEntity, Object.class,
+                    uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new com.google.gson.reflect.TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            Type type = new com.google.gson.reflect.TypeToken<ProjectRoleDto>() {
+            }.getType();
+            projectRole = gson.fromJson(gson.toJson(data), type);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.warn("Error occurred due to ProjectRole details not found for username: {}", username);
+            return null;
+        }
+        log.info("Project Role Details ==> {}", projectRole);
+        return projectRole;
     }
 
 //    public static Map<String, Object> getAllTestExesForTcRunId(RuleApi payload, Integer pageNo, Integer sort,
