@@ -103,7 +103,7 @@ public class RestApiUtils {
         uriVariables.put("username", username);
         uriVariables.put("status", status);
         try {
-            ResponseEntity response = restTemplate.exchange(projectManagerUrl + "/v2/project/role/entity?pid={pid}&username={username}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(projectManagerUrl + "/v2/project/role/entity?pid={pid}&userName={username}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
