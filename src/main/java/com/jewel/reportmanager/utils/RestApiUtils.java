@@ -721,7 +721,8 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("s_run_ids", s_run_ids);
+        String str_s_run_ids = s_run_ids.stream().map(Object::toString).collect(Collectors.joining(","));
+        uriVariables.put("s_run_ids", str_s_run_ids);
         try {
             ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExe?s_run_ids={s_run_ids}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
