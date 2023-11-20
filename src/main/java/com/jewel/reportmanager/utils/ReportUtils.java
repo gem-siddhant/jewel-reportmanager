@@ -410,7 +410,7 @@ public class ReportUtils {
         stepData.put("data", stepsVariableValue);
         stepData.put("tc_run_id", tc_run_id);
 
-        return new Response(stepData, "", SUCCESS);
+        return new Response(stepData, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
     }
 
     public Response populateResultWithoutTestExes(
