@@ -1218,6 +1218,10 @@ public class RuleService {
             Set<String> runModeSet = new HashSet<>();
             Map<String, Object> statusMap = new HashMap<>();
 
+            for (StatusColor statusColor : StatusColor.values()) {
+                statusMap.put(statusColor.toString(), 0L);
+            }
+
             if (!testcaseDetails.isEmpty()) {
                 long totalCount = 0L;
                 for (TestExeDto testExeDto : testcaseDetails) {
