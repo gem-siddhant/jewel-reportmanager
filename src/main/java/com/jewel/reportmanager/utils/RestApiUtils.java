@@ -607,7 +607,7 @@ public class RestApiUtils {
         uriVariables.put("reportName", reportName);
         uriVariables.put("status", status);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/suite/reportName/status?reportName={reportName}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v2/suite/reportName/status?reportName={reportName}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -721,9 +721,10 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("s_run_ids", s_run_ids);
+        String str_s_run_ids = s_run_ids.stream().map(Object::toString).collect(Collectors.joining(","));
+        uriVariables.put("s_run_ids", str_s_run_ids);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExe?s_run_ids={s_run_ids}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe?s_run_ids={s_run_ids}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -815,7 +816,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("tc_run_id", tc_run_id);;
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/steps?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/steps?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
