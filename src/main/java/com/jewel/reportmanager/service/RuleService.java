@@ -1350,13 +1350,13 @@ public class RuleService {
                     HashMap<String, Object> azureTickets = new HashMap<>();
                     if (map.containsKey("Jira_id")) {
                         jiraTickets.put("ID", map.get("Jira_id"));
-                        jiraTickets.put("Type", "Suite");
+                        jiraTickets.put("Type", "Suite (" + getSuite.getReport_name() + ")");
                         jiraTickets.put("Link", jiraUrl + map.get("Jira_id"));
                         jiraList.add(jiraTickets);
                     }
                     if (map.containsKey("Azure_id")) {
                         azureTickets.put("ID", map.get("Azure_id"));
-                        azureTickets.put("Type", "Suite");
+                        azureTickets.put("Type", "Suite (" + getSuite.getReport_name() + ")");
                         azureTickets.put("Link", azureUrl + map.get("Azure_id"));
                         azureList.add(azureTickets);
                     }
@@ -1391,7 +1391,7 @@ public class RuleService {
         type.put("Jira", jiraList);
         type.put("Azure", azureList);
 
-        return new Response(null, TICKETS_FETCHED_SUCCESSFULLY, SUCCESS);
+        return new Response(type, TICKETS_FETCHED_SUCCESSFULLY, SUCCESS);
     }
 
 }
