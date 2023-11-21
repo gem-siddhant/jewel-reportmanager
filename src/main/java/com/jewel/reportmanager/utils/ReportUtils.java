@@ -7,6 +7,7 @@ import com.jewel.reportmanager.enums.OperationType;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.enums.UserRole;
 import com.jewel.reportmanager.exception.CustomDataException;
+import com.jewel.reportmanager.service.ColumnMappingService;
 import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -48,6 +49,10 @@ public class ReportUtils {
     private static String projectManagerUrl;
     private static MongoOperations mongoOperations;
     private static RestTemplate restTemplate;
+
+    @Autowired
+    private ColumnMappingService columnMappingService;
+
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
         ReportUtils.restTemplate = restTemplate;
@@ -578,7 +583,7 @@ public class ReportUtils {
         result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
         result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
         result.put("status", getSuite.getStatus());
-        List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
+        List<String> columns = columnMappingService.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && columns.size() > 0) {
             List<String> headers = new ArrayList<>();
             for (String header : testcaseDetailsHeaders) {
@@ -772,7 +777,7 @@ public class ReportUtils {
         }
         result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
         exeData.put("testcase_info", testcaseInfo);
-        List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
+        List<String> columns = columnMappingService.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && !columns.isEmpty()) {
             List<String> headers = new ArrayList<>();
             for (String header : testcaseDetailsHeaders) {

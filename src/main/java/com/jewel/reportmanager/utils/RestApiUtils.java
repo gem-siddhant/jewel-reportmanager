@@ -657,39 +657,6 @@ public class RestApiUtils {
     }
 
     /**
-     * Returns column details for pid, report name and frameworks.
-     *
-     * @param pid
-     * @param name
-     * @param frameworks
-     * @return List<String> - column details
-     */
-    public static List<String> findColumnMapping(Long pid, String name, List<String> frameworks) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
-        HttpEntity httpEntity = new HttpEntity(null, headers);
-        Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
-        uriVariables.put("name", name);
-        uriVariables.put("frameworks", frameworks);
-        try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/column/pid/name/frameworks?pid={pid}&name={name}&frameworks={frameworks}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
-            Gson gson = new Gson();
-            String json = gson.toJson(response.getBody());
-            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
-            }.getType());
-            Object data = convertedMap.get("data");
-            Type type = new TypeToken<List<String>>() {
-            }.getType();
-
-            return gson.fromJson(gson.toJson(data), type);
-        } catch (HttpClientErrorException.NotFound ex) {
-            log.info("Column details not found for pid: {}, name: {}, frameworks: {}", pid, name, frameworks);
-            return Collections.EMPTY_LIST;
-        }
-    }
-
-    /**
      * Returns List<TestExeDto> from s_run_id
      *
      * @param s_run_id
