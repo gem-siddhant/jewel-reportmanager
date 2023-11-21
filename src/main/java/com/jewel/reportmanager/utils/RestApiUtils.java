@@ -848,10 +848,10 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         uriVariables.put("pageNo", pageNo);
-        uriVariables.put("sort", sort);
+        uriVariables.put("sortOrder", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExesList?s_run_id={s_run_id}&page={pageNo}&size=8&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExesList?s_run_id={s_run_id}&page={pageNo}&size=8&sortOrder={sortOrder}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             return gson.fromJson(json, new TypeToken<List<TestExeDto>>() {
