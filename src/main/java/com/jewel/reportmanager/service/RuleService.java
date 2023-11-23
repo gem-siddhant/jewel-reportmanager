@@ -937,12 +937,12 @@ public class RuleService {
     public Response getRuleActionReportV3(String s_run_id, String tc_run_id, Integer pageNo, Integer sort, String sortedColumn) {
         if (tc_run_id == null) {
 
-            if (sort == null || sortedColumn == null) {
+            if ((sort != null && sortedColumn == null) || (sort == null && sortedColumn != null)) {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, FAILURE, HttpStatus.OK);
             }
 
-            if (!List.of(-1, 0, 1).contains(sort)) {
+            if (sort != null && !List.of(-1, 0, 1).contains(sort)) {
                 log.error("Error occurred due to records not found");
                 throw new CustomDataException(INVALID_SORT_VALUE, null, FAILURE, HttpStatus.OK);
             }
