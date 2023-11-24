@@ -719,7 +719,7 @@ public class RestApiUtils {
         HttpEntity httpEntity = new HttpEntity(suiteExeDto, headers);
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
-        restTemplate.exchange(gemUrl + "/v2/suitExe/update?s_run_id={s_run_id}", HttpMethod.PUT, httpEntity, SuiteExeDto.class, uriVariables).getBody();
+        restTemplate.exchange(insertionManagerUrl + "/v2/suiteExe/update?s_run_id={s_run_id}", HttpMethod.PUT, httpEntity, SuiteExeDto.class, uriVariables).getBody();
     }
 
     /**
@@ -783,7 +783,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("tc_run_id", tc_run_id);;
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/steps?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/steps?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
