@@ -427,7 +427,8 @@ public class ReportUtils {
             String sortedColumn,
             Map<Long, VarianceClassificationDto> varianceList,
             List<Long> varianceIds,
-            ProjectDto project
+            ProjectDto project,
+            String user
     ) {
         Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
         if (last5RunsBarGraph != null) {
@@ -512,6 +513,7 @@ public class ReportUtils {
 
             map.remove("classificationDetails");
             map.remove("stepVarianceIds");
+            map.remove("job_name");
             testcaseDetailsHeaders.addAll(map.keySet());
             Map<String, Object> temp = new HashMap<>();
             for (String key : map.keySet()) {
@@ -580,9 +582,21 @@ public class ReportUtils {
         if (CategoryBarChart != null) {
             result.put("Category_Bar_Chart", CategoryBarChart);
         }
-        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
-        result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
+        result.put("Execution Info", ReportUtils.createExecutionInfoHeaders(getSuite));
+        result.put("Infra Headers", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "infraDetails"));
+        result.put("User Details", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "userDetails"));
+        result.put("Build Details", ReportUtils.createBuildHeaders(getSuite));
+        result.put("Execution details", ReportUtils.createExecutionDetailsHeaders(tempTest));
+        result.put("Time Details", ReportUtils.createTimeReportHeaders(tempTest,getSuite));
         result.put("status", getSuite.getStatus());
+
+        ProjectRoleDto projectRole = RestApiUtils.getProjectRoleByPidAndUsername(project.getPid(), user);
+        if(projectRole!=null) {
+            result.put("Project role", projectRole.getRole());
+        } else {
+            result.put("Project role","ADMIN");
+        }
+
         List<String> columns = columnMappingService.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && columns.size() > 0) {
             List<String> headers = new ArrayList<>();
@@ -613,6 +627,197 @@ public class ReportUtils {
         result.put("totalElements", getSuite.getTestcase_details().size());
 
         return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+    }
+
+    public static Object createTimeReportHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite) {
+        Map<String, Object> timeSubType = new HashMap<>();
+        Map<String, Object> data = new HashMap<>();
+        timeSubType.put("Clock Start Time", getSuite.getS_start_time());
+        if (getSuite.getS_end_time() != 0) {
+
+            timeSubType.put("Clock End Time", getSuite.getS_end_time());
+            timeSubType.put("Total Duration", getDuration(getSuite.getS_start_time(), getSuite.getS_end_time()));
+        } else {
+            timeSubType.put("Clock End Time", null);
+            timeSubType.put("Total Duration", null);
+        }
+
+        data.put("Clock Time", timeSubType);
+        timeSubType = new HashMap<>();
+
+        long minStartTime = testcaseList.get(0).getStart_time();
+        long maxEndTime = testcaseList.get(0).getEnd_time();
+
+        for (TestExeDto test : testcaseList) {
+            if (test.getStart_time() < minStartTime) {
+                minStartTime = test.getStart_time();
+            }
+            if (test.getEnd_time() > maxEndTime) {
+                maxEndTime = test.getEnd_time();
+            }
+        }
+
+        timeSubType.put("Automation Start Time", minStartTime);
+        if (maxEndTime != 0) {
+
+            timeSubType.put("Automation End Time", maxEndTime);
+            timeSubType.put("Total Duration", getDuration(minStartTime, maxEndTime));
+        } else {
+            timeSubType.put("Automation End Time", null);
+            timeSubType.put("Total Duration", null);
+        }
+        data.put("Automation Time", timeSubType);
+
+        return data;
+    }
+
+    public static Object createExecutionDetailsHeaders(List<TestExeDto> testcaseList) {
+        StringBuilder run_type = new StringBuilder();
+        StringBuilder run_mode = new StringBuilder();
+        Set<String> run_typeSet = new HashSet<>();
+        Set<String> run_modeSet = new HashSet<>();
+        Map<String, Object> data = new HashMap<>();
+        for (TestExeDto t : testcaseList) {
+            if (!run_modeSet.contains(t.getRun_mode())) {
+                run_mode.append(t.getRun_mode()).append(", ");
+                run_modeSet.add(t.getRun_mode());
+            }
+            if (!run_typeSet.contains(t.getRun_type().toUpperCase(Locale.ROOT))) {
+                if (t.getRun_type() != null) {
+                    run_type.append(t.getRun_type().toUpperCase(Locale.ROOT)).append(", ");
+                    run_typeSet.add(t.getRun_type().toUpperCase(Locale.ROOT));
+                }
+            }
+
+
+        }
+        if (!(run_mode.toString().equals("null, ") || run_mode.length() == 0)) {
+            run_mode = new StringBuilder(run_mode.substring(0, run_mode.length() - 2));
+            data.put("Run Mode", run_mode.toString());
+        } else {
+            data.put("Run Mode", null);
+        }
+
+        if (!(run_type.toString().equals("null, ") || run_type.length() == 0)) {
+            run_type = new StringBuilder(run_type.substring(0, run_type.length() - 2));
+            data.put("Run Type", run_type.toString());
+        } else {
+            data.put("Run Type", null);
+        }
+
+        if (testcaseList!=null && !testcaseList.isEmpty() && testcaseList.get(0).getJob_name() != null) {
+            data.put("Job Name", testcaseList.get(0).getJob_name());
+        } else {
+            data.put("Job Name", null);
+        }
+
+        return data;
+
+    }
+
+    public static Object createBuildHeaders(SuiteExeDto getSuite) {
+        HashMap<String, Object> data = new HashMap<>();
+        data.put("Build ID", getSuite.getBuild_id());
+        data.put("Sprint Name", getSuite.getSprint_name());
+
+        return data;
+    }
+
+    public static Object createInfraAndUserHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite, String dataCategory) {
+        StringBuilder machine = new StringBuilder();
+        String os = getSuite.getOs();
+        StringBuilder base_user = new StringBuilder();
+        StringBuilder token_user = new StringBuilder();
+        String framework_version = getSuite.getFramework_version();
+        String framework_name = getSuite.getFramework_name();
+
+        Set<String> machineSet = new HashSet<>();
+        Set<String> baseUserSet = new HashSet<>();
+        Set<String> tokenUserSet = new HashSet<>();
+        Map<String, Object> data = new HashMap<>();
+
+        if (dataCategory.equalsIgnoreCase("infraDetails")) {
+            for (TestExeDto t : testcaseList) {
+                if (t.getMachine() != null) {
+                    if (!machineSet.contains(t.getMachine())) {
+                        machine.append(t.getMachine()).append(", ");
+                        machineSet.add(t.getMachine());
+                    }
+                }
+
+            }
+
+            if (!(machine.toString().equals("null, ") || machine.length() == 0)) {
+                machine = new StringBuilder(machine.substring(0, machine.length() - 2));
+                data.put("Machine", machine.toString());
+            } else if (getSuite.getMachine()!=null) {
+                data.put("Machine",getSuite.getMachine());
+            }
+            else {
+                data.put("Machine", null);
+            }
+
+            if (!(os == null || os.length() == 0)) {
+                data.put("OS", os);
+            } else {
+                data.put("OS", null);
+            }
+
+            if (!(framework_name == null || framework_name.length() == 0) && !(framework_version == null || framework_version.length() == 0)) {
+                data.put("Framework", framework_name+" "+framework_version);
+            }
+
+
+        }
+
+        if (dataCategory.equalsIgnoreCase("userDetails")) {
+
+            for (TestExeDto t : testcaseList) {
+                if (t.getToken_user() != null) {
+                    if (!tokenUserSet.contains(t.getToken_user().toArray(new String[t.getToken_user().size()])[0])) {
+                        token_user.append(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]).append(",");
+                        tokenUserSet.add(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]);
+                    }
+                }
+                if (t.getBase_user() != null) {
+                    if (!baseUserSet.contains(t.getBase_user())) {
+                        base_user.append(t.getBase_user()).append(",");
+                        baseUserSet.add(t.getBase_user());
+                    }
+                }
+
+            }
+
+            if (!(base_user.toString().equals("null,") || base_user.length() == 0)) {
+                base_user = new StringBuilder(base_user.substring(0, base_user.length() - 1));
+                data.put("Machine Base User", base_user.toString());
+            } else if (getSuite.getUser()!=null) {
+                data.put("Machine base user",getSuite.getUser());
+            } else {
+                data.put("Machine Base User", null);
+            }
+
+            if (!(token_user.toString().equals("null,") || token_user.length() == 0)) {
+                token_user = new StringBuilder(token_user.substring(0, token_user.length() - 1));
+                data.put("Jewel Token User", token_user.toString());
+            } else {
+                data.put("Jewel Token User", null);
+            }
+
+        }
+
+        return data;
+
+    }
+
+    public static Object createExecutionInfoHeaders(SuiteExeDto getSuite) {
+        Map<String, Object> data = new HashMap<String, Object>();
+        data.put("Status", getSuite.getStatus());
+        data.put("Project Name", StringUtils.capitalize(getSuite.getProject_name()));
+        data.put("Env", StringUtils.capitalize(getSuite.getEnv()));
+        data.put("Report Name", StringUtils.capitalize(getSuite.getReport_name()));
+
+        return data;
     }
 
     public void populateResultWithTestExes(

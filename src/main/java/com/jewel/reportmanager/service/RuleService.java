@@ -1054,7 +1054,8 @@ public class RuleService {
                         sortedColumn,
                         varianceList,
                         varianceIds,
-                        project
+                        project,
+                        user1.getUsername()
                 );
             }
 
