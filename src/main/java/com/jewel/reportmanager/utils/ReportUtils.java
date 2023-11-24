@@ -242,78 +242,81 @@ public class ReportUtils {
                         }
                     }
 
-                    if (key.equalsIgnoreCase("sub_step") && stepMap.get("sub_step") != null) {
-                        List<Map<String, Object>> subStepsVariableValue = new ArrayList<>();
-                        List<Map<String, Object>> maps = (List<Map<String, Object>>) stepMap.get(key);
-                        Set<String> subStepsHeaders = new HashSet<>();
-                        for (Map<String, Object> map1 : maps) {
-                            Map<String, Object> subStepsTemp = new HashMap<>();
-                            subStepsHeaders.addAll(map1.keySet());
-                            for (String key2 : subStepsHeaders) {
-                                if (key2.equalsIgnoreCase("start_time") || key2.equalsIgnoreCase("end_time")) {
-                                    Map<String, Object> timeReport = new HashMap<>();
-                                    timeReport.put("subType", "datetime");
-                                    subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                            ReportUtils.createCustomObject(map1.get(key2), "date", map1.get(key2),
-                                                    "center", timeReport));
-                                } else if (key2.equalsIgnoreCase("status")) {
-                                    if (subStepStatus != null) {
+                    if (key.equalsIgnoreCase("sub_step")) {
+                        if(stepMap.get("sub_step") != null) {
+                            List<Map<String, Object>> subStepsVariableValue = new ArrayList<>();
+                            List<Map<String, Object>> maps = (List<Map<String, Object>>) stepMap.get(key);
+                            Set<String> subStepsHeaders = new HashSet<>();
+                            for (Map<String, Object> map1 : maps) {
+                                Map<String, Object> subStepsTemp = new HashMap<>();
+                                subStepsHeaders.addAll(map1.keySet());
+                                for (String key2 : subStepsHeaders) {
+                                    if (key2.equalsIgnoreCase("start_time") || key2.equalsIgnoreCase("end_time")) {
+                                        Map<String, Object> timeReport = new HashMap<>();
+                                        timeReport.put("subType", "datetime");
                                         subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                ReportUtils.createCustomObject(subStepStatus, "crud", subStepStatus,
-                                                        "center", statusSubType));
+                                                ReportUtils.createCustomObject(map1.get(key2), "date", map1.get(key2),
+                                                        "center", timeReport));
+                                    } else if (key2.equalsIgnoreCase("status")) {
+                                        if (subStepStatus != null) {
+                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
+                                                    ReportUtils.createCustomObject(subStepStatus, "crud", subStepStatus,
+                                                            "center", statusSubType));
+                                        } else {
+                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
+                                                    ReportUtils.createCustomObject(map1.get(key2), "crud", map1.get(key2),
+                                                            "center", statusSubType));
+                                        }
+                                        subStepsTemp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
+                                        if (map1.get(key2) != null && (map1.get(key2).toString().equalsIgnoreCase("ERR") || map1.get(key2).toString().equalsIgnoreCase("FAIL")) || (classificationDetails != null && classificationDetails.isFalsePositiveStatus())) {
+                                            if (varianceIsActive) {
+                                                subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
+                                            } else if (falsePositiveIsActive && classificationDetails != null) {
+                                                subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
+                                                if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
+                                                    subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
+                                            } else if (varianceIsThere) {
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
+                                            } else if (falsePositiveIsThere && classificationDetails != null) {
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
+                                                if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
+                                                    subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
+                                            }
+                                        }
+
+                                    } else if (key2.equalsIgnoreCase("screenshot")) {
+                                        subStepsTemp.put(ReportUtils.changeKeyValue(key2),
+                                                ReportUtils.createCustomObject(map1.get(key2), "image",
+                                                        map1.get(key2),
+                                                        "center"));
+                                        Map<String, Object> screenshot = new HashMap<>();
+                                        if (map1.get(key2) != null) {
+                                            if (map1.get("step name") != null) {
+                                                screenshot.put(map1.get("step name").toString(), (map1.get(key2)));
+                                            } else {
+                                                screenshot.put(map1.get("title").toString(), (map1.get(key2)));
+                                            }
+                                            gallery.add(screenshot);
+                                        }
+
                                     } else {
                                         subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                ReportUtils.createCustomObject(map1.get(key2), "crud", map1.get(key2),
-                                                        "center", statusSubType));
-                                    }
-                                    subStepsTemp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                                    if (map1.get(key2) != null && (map1.get(key2).toString().equalsIgnoreCase("ERR") || map1.get(key2).toString().equalsIgnoreCase("FAIL")) || (classificationDetails != null && classificationDetails.isFalsePositiveStatus())) {
-                                        if (varianceIsActive) {
-                                            subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
-                                        } else if (falsePositiveIsActive && classificationDetails != null) {
-                                            subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
-                                            if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                                subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                        } else if (varianceIsThere) {
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
-                                        } else if (falsePositiveIsThere && classificationDetails != null) {
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
-                                            if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                                subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                        }
+                                                ReportUtils.createCustomObject(map1.get(key2), "text", map1.get(key2),
+                                                        "left"));
                                     }
 
-                                } else if (key2.equalsIgnoreCase("screenshot")) {
-                                    subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                            ReportUtils.createCustomObject(map1.get(key2), "image",
-                                                    map1.get(key2),
-                                                    "center"));
-                                    Map<String, Object> screenshot = new HashMap<>();
-                                    if (map1.get(key2) != null) {
-                                        if (map1.get("step name") != null) {
-                                            screenshot.put(map1.get("step name").toString(), (map1.get(key2)));
-                                        } else {
-                                            screenshot.put(map1.get("title").toString(), (map1.get(key2)));
-                                        }
-                                        gallery.add(screenshot);
-                                    }
-
-                                } else {
-                                    subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                            ReportUtils.createCustomObject(map1.get(key2), "text", map1.get(key2),
-                                                    "left"));
                                 }
-
+                                subStepsVariableValue.add(subStepsTemp);
                             }
-                            subStepsVariableValue.add(subStepsTemp);
+                            Map<String, Object> subStepsData = new HashMap<>();
+                            subStepsData.put("data", subStepsVariableValue);
+                            subStepsData.put("headers", ReportUtils.headersDataStepRefactor(subStepsHeaders));
+                            temp.put("SUB_STEPS", subStepsData);
                         }
-                        Map<String, Object> subStepsData = new HashMap<>();
-                        subStepsData.put("data", subStepsVariableValue);
-                        subStepsData.put("headers", ReportUtils.headersDataStepRefactor(subStepsHeaders));
-                        temp.put("SUB_STEPS", subStepsData);
-                    } else continue;
+                        continue;
+                    }
 
                     if (key.equalsIgnoreCase("start_time") || key.equalsIgnoreCase("end_time")) {
                         Map<String, Object> timeReport = new HashMap<>();
