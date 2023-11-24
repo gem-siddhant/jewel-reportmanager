@@ -929,7 +929,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExe/data?pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.POST, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe/data?pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.POST, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -941,7 +941,7 @@ public class RestApiUtils {
             convertedMap = gson.fromJson(gson.toJson(data), type);
             Map<String, Object> resultMap = new HashMap<>();
             resultMap.put("count", (long) Math.floor((Double) convertedMap.get("count")));
-            data = convertedMap.get("testExesData");
+            data = convertedMap.get("results");
             type = new TypeToken<List<BasicDBObject>>() {
             }.getType();
             List<BasicDBObject> basicDBObjectList = gson.fromJson(gson.toJson(data), type);
@@ -958,7 +958,7 @@ public class RestApiUtils {
             resultMap.put("results", basicDBObjectList);
             return resultMap;
         } catch (RestClientException ex) {
-            log.info("Error occurred due to empty map for payload: {}, pageNo: {}, sort: {} and sortedColumn: {}", payload, pageNo, sort, sortedColumn);
+            log.error("Error occurred due to empty map for payload: {}, pageNo: {}, sort: {} and sortedColumn: {}", payload, pageNo, sort, sortedColumn, ex);
             return Collections.emptyMap();
         }
     }
