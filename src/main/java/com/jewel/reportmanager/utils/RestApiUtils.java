@@ -576,7 +576,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("tc_run_id", tc_run_id);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/testcase?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v2/testcase?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
