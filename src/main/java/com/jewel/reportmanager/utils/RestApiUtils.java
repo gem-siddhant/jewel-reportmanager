@@ -527,7 +527,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         try {
-            return restTemplate.exchange(gemUrl + "/v2/suitExe?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, SuiteExeDto.class, uriVariables).getBody();
+            return restTemplate.exchange(insertionManagerUrl + "/v2/suiteExe?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, SuiteExeDto.class, uriVariables).getBody();
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Suite exe is empty for s_run_id: {}", s_run_id);
             return null;
