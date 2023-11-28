@@ -1362,6 +1362,49 @@ public class ReportUtils {
         return Math.round((double) transitions / (totalTestExes - 1) * 100.0) / 100.0;
     }
 
+    public static double brokenIndex(List<TestExeCommonDto> testExes) {
+
+        if (testExes.size() == 1) {
+            if (testExes.get(0).getStatus().equalsIgnoreCase("FAIL")) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+        double denom = Math.floor(testExes.size() / (double) 2);
+
+        double numenator = 0;
+        int count = 0;
+        TestExeCommonDto curr = null;
+        TestExeCommonDto prev = null;
+
+        for (TestExeCommonDto testExe : testExes) {
+
+            if (curr == null && prev == null) {
+                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
+                    count++;
+                }
+                curr = testExe;
+            } else {
+                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
+                    count++;
+                }
+                prev = curr;
+                curr = testExe;
+                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
+                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
+                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
+                    numenator++;
+                }
+
+            }
+        }
+        if (count == testExes.size()) {
+            return 1;
+        }
+        return Math.round((float) (numenator / denom) * 100.0) / 100.0;
+    }
+
     public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
         if (suites.isEmpty()) {
             return 0;
@@ -1644,7 +1687,7 @@ public class ReportUtils {
         testExeDiagnose.setMiscData((List<Map<String, Object>>) testExe.get("miscData"));
         testExeDiagnose.setUserDefinedData((Map<String, Object>) testExe.get("userDefinedData"));
         testExeDiagnose.setS_run_id((String) testExe.get("s_run_id"));
-        testExeDiagnose.setP_id((Long) suiteExe.get("p_id"));
+        testExeDiagnose.setP_id(((Double)suiteExe.get("p_id")).longValue());
         return testExeDiagnose;
     }
 
