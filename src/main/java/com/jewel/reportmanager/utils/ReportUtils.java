@@ -1342,13 +1342,12 @@ public class ReportUtils {
         int failCount = 0;
         int transitions = 0;
 
-        TestExeCommonDto prevTestExe = testExes.get(0);
-        for (int i = 1; i < totalTestExes; i++) {
-            TestExeCommonDto currentTestExe = testExes.get(i);
+        TestExeCommonDto prevTestExe = null;
+        for (TestExeCommonDto currentTestExe : testExes) {
             if (currentTestExe.getStatus().equalsIgnoreCase("FAIL")) {
                 failCount++;
             }
-            if (isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
+            if (prevTestExe != null && isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
                 transitions++;
             }
             prevTestExe = currentTestExe;
@@ -1359,7 +1358,7 @@ public class ReportUtils {
         if (transitions == 0) {
             return 0.0;
         }
-        return Math.round((double) transitions / (totalTestExes - 1) * 100.0) / 100.0;
+        return Math.round((double) transitions / (totalTestExes/(double)2) * 100.0) / 100.0;
     }
 
     public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
@@ -1370,14 +1369,12 @@ public class ReportUtils {
         int failCount = 0;
         int transitions = 0;
 
-        SuiteExeDto prevSuite = suites.get(0);
-
-        for (int i = 1; i < totalSuites; i++) {
-            SuiteExeDto currentSuite = suites.get(i);
+        SuiteExeDto prevSuite = null;
+        for (SuiteExeDto currentSuite : suites) {
             if (currentSuite.getStatus().equalsIgnoreCase("FAIL")) {
                 failCount++;
             }
-            if (isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
+            if (prevSuite != null && isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
                 transitions++;
             }
             prevSuite = currentSuite;
@@ -1389,7 +1386,7 @@ public class ReportUtils {
             return 0.0;
         }
 
-        return Math.round((double) transitions / (totalSuites - 1) * 100.0) / 100.0;
+        return Math.round((double) transitions / (totalSuites/(double)2) * 100.0) / 100.0;
     }
 
     private static boolean isTransition(String status1, String status2) {
@@ -1644,7 +1641,7 @@ public class ReportUtils {
         testExeDiagnose.setMiscData((List<Map<String, Object>>) testExe.get("miscData"));
         testExeDiagnose.setUserDefinedData((Map<String, Object>) testExe.get("userDefinedData"));
         testExeDiagnose.setS_run_id((String) testExe.get("s_run_id"));
-        testExeDiagnose.setP_id((Long) suiteExe.get("p_id"));
+        testExeDiagnose.setP_id(((Double)suiteExe.get("p_id")).longValue());
         return testExeDiagnose;
     }
 
