@@ -756,7 +756,7 @@ public class RuleService {
 
             List<TestExeCommonDto> testExeCommonDtoSummeryList = entry.getValue();
 
-            double brokenIndex = ReportUtils.brokenIndex(testExeCommonDtoSummeryList);
+            double brokenIndex = ReportUtils.brokenIndexForTestExe(testExeCommonDtoSummeryList);
             String averageFixTime;
             if (brokenIndex == 1) {
                 averageFixTime = NEVER_FIXED;

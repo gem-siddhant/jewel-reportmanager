@@ -1342,13 +1342,12 @@ public class ReportUtils {
         int failCount = 0;
         int transitions = 0;
 
-        TestExeCommonDto prevTestExe = testExes.get(0);
-        for (int i = 1; i < totalTestExes; i++) {
-            TestExeCommonDto currentTestExe = testExes.get(i);
+        TestExeCommonDto prevTestExe = null;
+        for (TestExeCommonDto currentTestExe : testExes) {
             if (currentTestExe.getStatus().equalsIgnoreCase("FAIL")) {
                 failCount++;
             }
-            if (isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
+            if (prevTestExe != null && isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
                 transitions++;
             }
             prevTestExe = currentTestExe;
@@ -1360,49 +1359,6 @@ public class ReportUtils {
             return 0.0;
         }
         return Math.round((double) transitions / (totalTestExes - 1) * 100.0) / 100.0;
-    }
-
-    public static double brokenIndex(List<TestExeCommonDto> testExes) {
-
-        if (testExes.size() == 1) {
-            if (testExes.get(0).getStatus().equalsIgnoreCase("FAIL")) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-        double denom = Math.floor(testExes.size() / (double) 2);
-
-        double numenator = 0;
-        int count = 0;
-        TestExeCommonDto curr = null;
-        TestExeCommonDto prev = null;
-
-        for (TestExeCommonDto testExe : testExes) {
-
-            if (curr == null && prev == null) {
-                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
-                    count++;
-                }
-                curr = testExe;
-            } else {
-                if (testExe.getStatus().equalsIgnoreCase("FAIL")) {
-                    count++;
-                }
-                prev = curr;
-                curr = testExe;
-                if ((prev.getStatus().equalsIgnoreCase("PASS") || prev.getStatus().equalsIgnoreCase("INFO")
-                        || prev.getStatus().equalsIgnoreCase("EXE") || prev.getStatus().equalsIgnoreCase("WARN"))
-                        && (curr.getStatus().equalsIgnoreCase("FAIL") || curr.getStatus().equalsIgnoreCase("ERR"))) {
-                    numenator++;
-                }
-
-            }
-        }
-        if (count == testExes.size()) {
-            return 1;
-        }
-        return Math.round((float) (numenator / denom) * 100.0) / 100.0;
     }
 
     public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
