@@ -45,7 +45,6 @@ import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
 public class ReportUtils {
 
     private static String userManagerUrl;
-    private static String gemUrl;
     private static String projectManagerUrl;
     private static MongoOperations mongoOperations;
     private static RestTemplate restTemplate;
@@ -66,11 +65,6 @@ public class ReportUtils {
     @Value("${project.manager.url}")
     public void setProjectManagerUrl(String projectManagerUrl) {
         ReportUtils.projectManagerUrl = projectManagerUrl;
-    }
-
-    @Value("${gem.url}")
-    public void setGemUrl(String gemUrl) {
-        ReportUtils.gemUrl = gemUrl;
     }
 
     @Autowired
