@@ -449,7 +449,7 @@ public class ReportUtils {
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
         }
 
-        List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
+        List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn, false);
         if (tempTest.isEmpty()) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
@@ -874,11 +874,18 @@ public class ReportUtils {
                 }
             }
             ObjectMapper oMapper = new ObjectMapper();
-            LinkedHashMap<String, Object> map = oMapper.convertValue(testExe, LinkedHashMap.class);
+            TestExeDto2 customDto = new TestExeDto2(testExe);
+            LinkedHashMap<String, Object> map = oMapper.convertValue(customDto, LinkedHashMap.class);
             if (testExe.getUser_defined_data() != null) {
                 map.putAll(testExe.getUser_defined_data());
             }
             depopulateMap(map);
+            map.remove("category");
+            map.remove("machine");
+            map.remove("base_user");
+            map.remove("invoke_user");
+            map.remove("token_user");
+            map.remove("job_name");
             testcaseDetailsHeaders.remove("classificationDetails");
             testcaseDetailsHeaders.remove("stepVarianceIds");
             testcaseDetailsHeaders.addAll(map.keySet());
@@ -919,10 +926,10 @@ public class ReportUtils {
         testcaseDetailsHeaders.remove("varianceId");
         testcaseDetails.put("data", testcaseDetailsData);
         testcaseDetails.put("headers", testcaseDetailsHeaders);
-        Map<String, Object> iconMap = getMapAccordingToSuiteVarianceAndFalsePositive(suiteVarianceIsActive, suiteFalsePositiveIsActive, suiteVarianceIsThere, suiteFalsePositiveIsThere);
+
         Map<String, Long> testcaseInfo = new TreeMap<>(Collections.reverseOrder());
         for (String status : statuses) {
-            testcaseInfo.put(status, ReportUtils.getStatusWiseCount(getSuite.getS_run_id(), status));
+            testcaseInfo.put(status, RestApiUtils.getStatusWiseCount(getSuite.getS_run_id(), status));
             if (StatusColor.valueOf(status.toUpperCase()).priority < currentPriority) {
                 log.info(
                         StatusColor.valueOf(status.toUpperCase()).priority + "-----" + currentPriority);
@@ -931,21 +938,21 @@ public class ReportUtils {
                 log.info("------" + StatusColor.valueOf(status.toUpperCase()).priority);
             }
         }
-        Long sumOthers = 0L;
-
-        Iterator<Map.Entry<String, Long>> iterator = testcaseInfo.entrySet().iterator();
-
-        while (iterator.hasNext()) {
-
-            Map.Entry<String, Long> entry = iterator.next();
-
-            if (!List.of("PASS", "FAIL").contains(entry.getKey())){
-                sumOthers += entry.getValue();
-                iterator.remove();
-            }
-        }
-
-        testcaseInfo.put("OTHERS", sumOthers);
+//        Long sumOthers = 0L;
+//
+//        Iterator<Map.Entry<String, Long>> iterator = testcaseInfo.entrySet().iterator();
+//
+//        while (iterator.hasNext()) {
+//
+//            Map.Entry<String, Long> entry = iterator.next();
+//
+//            if (!List.of("PASS", "FAIL").contains(entry.getKey())){
+//                sumOthers += entry.getValue();
+//                iterator.remove();
+//            }
+//        }
+//
+//        testcaseInfo.put("OTHERS", sumOthers);
 
         if (expectedStatus.equalsIgnoreCase("EXE")) {
             expectedStatus = "PASS";
@@ -972,13 +979,22 @@ public class ReportUtils {
 
         exeData.put("expected_completion",
                 Math.round(ReportUtils.getTimeRemainingNew(getSuite, ans)));
-        result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
+        result.put("Infra Headers", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "infraDetails"));
+        result.put("User Details", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "userDetails"));
+        result.put("Execution details", ReportUtils.createExecutionDetailsHeaders(tempTest));
 
-        if (statuses.isEmpty()) {
-            testcaseInfo = null;
-        }
-        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
-        exeData.put("testcase_info", testcaseInfo);
+        testcaseInfo.put("EXE",getSuite.getExpected_testcases() - testcaseCountWithoutExe);
+
+//        if (statuses.isEmpty()) {
+//            testcaseInfo = null;
+//        }
+
+        Map<String,Object> tcInfoData = new HashMap<>();
+        List<Map.Entry<String, Long>> legend = new ArrayList<>(testcaseInfo.entrySet());
+        tcInfoData.put("value", ReportUtils.createDoughnutChart(testcaseInfo));
+        tcInfoData.put("legend", legend);
+        exeData.put("testcase_info", tcInfoData);
+
         List<String> columns = columnMappingService.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && !columns.isEmpty()) {
             List<String> headers = new ArrayList<>();

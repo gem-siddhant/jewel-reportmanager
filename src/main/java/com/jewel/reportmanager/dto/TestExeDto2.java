@@ -9,14 +9,13 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 @Getter
 @Setter
-public class TestExeDto {
+public class TestExeDto2 {
 
     private String tc_run_id;
 
@@ -92,37 +91,36 @@ public class TestExeDto {
     private Long varianceId;
 
     @JsonIgnore
-    private List<Long> stepVarianceIds=new ArrayList<>();
+    private List<Long> stepVarianceIds;
 
-    @JsonIgnore
     private Long testcase_id;
 
-    public TestExeDto(TestExeDto2 testExeDto2) {
-        this.tc_run_id = testExeDto2.getTc_run_id();
-        this.start_time = testExeDto2.getStart_time();
-        this.end_time = testExeDto2.getEnd_time();
-        this.name = testExeDto2.getName();
-        this.category = testExeDto2.getCategory();
-        this.log_file = testExeDto2.getLog_file();
-        this.status = testExeDto2.getStatus();
-        this.machine = testExeDto2.getMachine();
-        this.result_file = testExeDto2.getResult_file();
-        this.product_type = testExeDto2.getProduct_type();
-        this.ignore = testExeDto2.isIgnore();
-        this.steps = testExeDto2.getSteps();
-        this.meta_data = testExeDto2.getMeta_data();
-        this.user_defined_data = testExeDto2.getUser_defined_data();
-        this.s_run_id = testExeDto2.getS_run_id();
-        this.run_type = testExeDto2.getRun_type();
-        this.run_mode = testExeDto2.getRun_mode();
-        this.base_user = testExeDto2.getBase_user();
-        this.invoke_user = testExeDto2.getInvoke_user();
-        this.token_user = testExeDto2.getToken_user();
-        this.job_name = testExeDto2.getJob_name();
-        this.classificationDetails = testExeDto2.getClassificationDetails();
-        this.varianceId = testExeDto2.getVarianceId();
-        this.stepVarianceIds = testExeDto2.getStepVarianceIds();
-        this.testcase_id = testExeDto2.getTestcase_id();
+    public TestExeDto2(TestExeDto testExeDto) {
+        this.tc_run_id = testExeDto.getTc_run_id();
+        this.start_time = testExeDto.getStart_time();
+        this.end_time = testExeDto.getEnd_time();
+        this.name = testExeDto.getName();
+        this.category = testExeDto.getCategory();
+        this.log_file = testExeDto.getLog_file();
+        this.status = testExeDto.getStatus();
+        this.machine = testExeDto.getMachine();
+        this.result_file = testExeDto.getResult_file();
+        this.product_type = testExeDto.getProduct_type();
+        this.ignore = testExeDto.isIgnore();
+        this.steps = testExeDto.getSteps();
+        this.meta_data = testExeDto.getMeta_data();
+        this.user_defined_data = testExeDto.getUser_defined_data();
+        this.s_run_id = testExeDto.getS_run_id();
+        this.run_type = testExeDto.getRun_type();
+        this.run_mode = testExeDto.getRun_mode();
+        this.base_user = testExeDto.getBase_user();
+        this.invoke_user = testExeDto.getInvoke_user();
+        this.token_user = testExeDto.getToken_user();
+        this.job_name = testExeDto.getJob_name();
+        this.classificationDetails = testExeDto.getClassificationDetails();
+        this.varianceId = testExeDto.getVarianceId();
+        this.stepVarianceIds = testExeDto.getStepVarianceIds();
+        this.testcase_id = testExeDto.getTestcase_id();
     }
 
 }
