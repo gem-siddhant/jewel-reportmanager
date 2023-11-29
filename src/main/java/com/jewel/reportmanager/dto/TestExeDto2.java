@@ -10,7 +10,6 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,7 +17,7 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
-public class TestExeDto {
+public class TestExeDto2 {
 
     private String tc_run_id;
 
@@ -83,10 +82,6 @@ public class TestExeDto {
 
     private String job_name;
 
-    public Map<String, Object> getUser_defined_data() {
-        return user_defined_data;
-    }
-
     @JsonIgnore
     private ClassificationDetails classificationDetails;
 
@@ -94,9 +89,8 @@ public class TestExeDto {
     private Long varianceId;
 
     @JsonIgnore
-    private List<Long> stepVarianceIds=new ArrayList<>();
+    private List<Long> stepVarianceIds;
 
-    @JsonIgnore
     private Long testcase_id;
 
 }

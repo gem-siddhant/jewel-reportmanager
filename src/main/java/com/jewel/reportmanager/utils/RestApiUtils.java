@@ -5,6 +5,7 @@ import com.jewel.reportmanager.dto.*;
 import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
+import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -800,9 +801,10 @@ public class RestApiUtils {
      * @param pageNo
      * @param sort
      * @param sortedColumn
+     * @param testCaseIdNeeded
      * @return List<TestExeDto>
      */
-    public static List<TestExeDto> getTestExes(String s_run_id, Integer pageNo, Integer sort, String sortedColumn) {
+    public static List<TestExeDto> getTestExes(String s_run_id, Integer pageNo, Integer sort, String sortedColumn, Boolean testCaseIdNeeded) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
@@ -811,12 +813,18 @@ public class RestApiUtils {
         uriVariables.put("pageNo", pageNo);
         uriVariables.put("sortOrder", sort);
         uriVariables.put("sortedColumn", sortedColumn);
+        uriVariables.put("testCaseIdNeeded", testCaseIdNeeded);
         try {
-            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExesList?s_run_id={s_run_id}&page={pageNo}&size=8&sortOrder={sortOrder}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExesList?s_run_id={s_run_id}&page={pageNo}&size=8&sortOrder={sortOrder}&sortedColumn={sortedColumn}&testCaseIdNeeded={testCaseIdNeeded}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
-            return gson.fromJson(json, new TypeToken<List<TestExeDto>>() {
-            }.getType());
+            if(testCaseIdNeeded != null && testCaseIdNeeded) {
+                List<TestExeDto2> customList = gson.fromJson(json, new TypeToken<List<TestExeDto2>>() {
+                }.getType());
+                ModelMapper modelMapper = new ModelMapper();
+                return customList.stream().map(testExeDto2 -> modelMapper.map(testExeDto2, TestExeDto.class)).collect(Collectors.toList());
+            }
+            return gson.fromJson(json, new TypeToken<List<TestExeDto>>() {}.getType());
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Test exe list is empty for s_run_id: {} pageNo: {}, sort: {} and sortedColumn: {}", s_run_id, pageNo, sort, sortedColumn);
             return List.of();
@@ -956,4 +964,29 @@ public class RestApiUtils {
             return Collections.emptyMap();
         }
     }
+
+    public static Long getStatusWiseCount(String s_run_id, String status) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("s_run_id", s_run_id);
+        uriVariables.put("status", status);
+        try {
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe/statusCount?s_run_id={s_run_id}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            Type type = new TypeToken<Long>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (RestClientException ex) {
+            log.info("Error while fetching status wise count for s_run_id: {} and status: {}", s_run_id, status);
+            return null;
+        }
+    }
+
 }

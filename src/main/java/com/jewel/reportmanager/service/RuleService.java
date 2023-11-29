@@ -993,7 +993,20 @@ public class RuleService {
 
                 Map<String, Object> statusSubType = new HashMap<>();
                 statusSubType.put("subType", "falseVariance");
-                List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
+                result.put("Execution Info", ReportUtils.createExecutionInfoHeaders(getSuite));
+                HashMap<String, Object> timeReport = new HashMap<>();
+                timeReport.put("Start Time", getSuite.getS_start_time());
+                timeReport.put("Duration", null);
+                result.put("Time Details", timeReport);
+                List<Map<String, Long>> testcaseLegend = new ArrayList<>();
+                Map<String,Object> data = new HashMap<>();
+                Map<String, Long> initialTestcaseInfo = new HashMap<>();
+                initialTestcaseInfo.put("TOTAL", getSuite.getExpected_testcases());
+                data.put("value", ReportUtils.createDoughnutChart(initialTestcaseInfo));
+                testcaseLegend.add(initialTestcaseInfo);
+                data.put("legend", testcaseLegend);
+
+                List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn, true);
                 if (!tempTest.isEmpty()) {
                     reportUtils.populateResultWithTestExes(
                             tempTest,
@@ -1022,6 +1035,9 @@ public class RuleService {
                     testcase_progress.put("executed",
                             getSuite.getTestcase_details() != null ? getSuite.getTestcase_details().size() : 0);
 
+                    // Initial Doughnut chart data
+                    exe_data.put("testcase_info",data);
+
                     SuiteRun suiteRunData = RestApiUtils.getSuiteRun(getSuite.getS_run_id());
                     List<List<DependencyTree>> ans = new ArrayList<>();
                     assert suiteRunData != null;
@@ -1030,13 +1046,14 @@ public class RuleService {
                             ans.addAll(suiteRunValues.getExpected_testcases());
                         }
                     }
-                    exe_data.put("testcase_info", null);
-                    result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, null));
+
                     exe_data.put("testcase_progress", testcase_progress);
                     exe_data.put("expected_status", expected_status);
                     exe_data.put("expected_completion",
-                            Math.round(ReportUtils.getTimeRemainingNew(getSuite, ans)));
-                    result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
+                            Math.round(ReportUtils.getTimeRemainingNew(getSuite,ans)));
+                    result.put("Infra Headers", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "infraDetails"));
+                    result.put("User Details", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "userDetails"));
+                    result.put("Execution details", ReportUtils.createExecutionDetailsHeaders(tempTest));
                     testcase_progress.put("executed", testcaseDetailsData.size());
                     result.put("exe_data", exe_data);
                     result.put("TestCase_Details", null);
