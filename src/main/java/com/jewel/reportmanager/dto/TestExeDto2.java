@@ -3,6 +3,7 @@ package com.jewel.reportmanager.dto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.validation.constraints.NotBlank;
@@ -15,6 +16,7 @@ import java.util.Set;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class TestExeDto2 {
 
     private String tc_run_id;
@@ -80,10 +82,6 @@ public class TestExeDto2 {
 
     private String job_name;
 
-    public Map<String, Object> getUser_defined_data() {
-        return user_defined_data;
-    }
-
     @JsonIgnore
     private ClassificationDetails classificationDetails;
 
@@ -94,33 +92,5 @@ public class TestExeDto2 {
     private List<Long> stepVarianceIds;
 
     private Long testcase_id;
-
-    public TestExeDto2(TestExeDto testExeDto) {
-        this.tc_run_id = testExeDto.getTc_run_id();
-        this.start_time = testExeDto.getStart_time();
-        this.end_time = testExeDto.getEnd_time();
-        this.name = testExeDto.getName();
-        this.category = testExeDto.getCategory();
-        this.log_file = testExeDto.getLog_file();
-        this.status = testExeDto.getStatus();
-        this.machine = testExeDto.getMachine();
-        this.result_file = testExeDto.getResult_file();
-        this.product_type = testExeDto.getProduct_type();
-        this.ignore = testExeDto.isIgnore();
-        this.steps = testExeDto.getSteps();
-        this.meta_data = testExeDto.getMeta_data();
-        this.user_defined_data = testExeDto.getUser_defined_data();
-        this.s_run_id = testExeDto.getS_run_id();
-        this.run_type = testExeDto.getRun_type();
-        this.run_mode = testExeDto.getRun_mode();
-        this.base_user = testExeDto.getBase_user();
-        this.invoke_user = testExeDto.getInvoke_user();
-        this.token_user = testExeDto.getToken_user();
-        this.job_name = testExeDto.getJob_name();
-        this.classificationDetails = testExeDto.getClassificationDetails();
-        this.varianceId = testExeDto.getVarianceId();
-        this.stepVarianceIds = testExeDto.getStepVarianceIds();
-        this.testcase_id = testExeDto.getTestcase_id();
-    }
 
 }

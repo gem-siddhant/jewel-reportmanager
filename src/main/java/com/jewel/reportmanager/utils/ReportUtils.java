@@ -12,6 +12,7 @@ import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
+import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -874,7 +875,8 @@ public class ReportUtils {
                 }
             }
             ObjectMapper oMapper = new ObjectMapper();
-            TestExeDto2 customDto = new TestExeDto2(testExe);
+            ModelMapper modelMapper = new ModelMapper();
+            TestExeDto2 customDto = modelMapper.map(testExe, TestExeDto2.class);
             LinkedHashMap<String, Object> map = oMapper.convertValue(customDto, LinkedHashMap.class);
             if (testExe.getUser_defined_data() != null) {
                 map.putAll(testExe.getUser_defined_data());

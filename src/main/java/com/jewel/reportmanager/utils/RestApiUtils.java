@@ -5,6 +5,7 @@ import com.jewel.reportmanager.dto.*;
 import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
+import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -820,7 +821,8 @@ public class RestApiUtils {
             if(testCaseIdNeeded != null && testCaseIdNeeded) {
                 List<TestExeDto2> customList = gson.fromJson(json, new TypeToken<List<TestExeDto2>>() {
                 }.getType());
-                return customList.stream().map(TestExeDto::new).collect(Collectors.toList());
+                ModelMapper modelMapper = new ModelMapper();
+                return customList.stream().map(testExeDto2 -> modelMapper.map(testExeDto2, TestExeDto.class)).collect(Collectors.toList());
             }
             return gson.fromJson(json, new TypeToken<List<TestExeDto>>() {}.getType());
         } catch (HttpClientErrorException.NotFound ex) {
