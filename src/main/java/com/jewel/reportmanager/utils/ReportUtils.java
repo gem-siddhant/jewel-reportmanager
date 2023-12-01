@@ -427,10 +427,10 @@ public class ReportUtils {
             ProjectDto project,
             String user
     ) {
-        Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
-        if (last5RunsBarGraph != null) {
-            result.put("Last_5_Runs_Bar_Chart", last5RunsBarGraph);
-        }
+//        Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
+//        if (last5RunsBarGraph != null) {
+//            result.put("Last_5_Runs_Bar_Chart", last5RunsBarGraph);
+//        }
         Map<String, Object> testcaseDetails = new HashMap<>();
         List<Map<String, Object>> testcaseDetailsdata = new ArrayList<>();
         Map<String, List<Map<String, Object>>> statusFilterMap = new HashMap<>();
@@ -449,7 +449,7 @@ public class ReportUtils {
             throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
-        List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn, false);
+        List<TestExeDto> tempTest = RestApiUtils.fetchTestExes(s_run_id, sort, sortedColumn);
         if (tempTest.isEmpty()) {
             log.error("Error occurred due to records not found");
             throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
