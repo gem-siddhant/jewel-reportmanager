@@ -74,22 +74,12 @@ public class SuiteExeDto {
     @Pattern(regexp = "^(?=.*[a-zA-Z])[a-zA-Z0-9_. -]*$", message = "Invalid value")
     @Schema(example = "Test Report_1")
     private String report_name;
-
     private Long expected_testcases;
-
     private String mode;
-
-    @JsonIgnore
-    private Set<Long> varianceIds = new HashSet<>();
-
-    @JsonIgnore
+    private Set<Long> varianceIds;
     private ClassificationDetails classificationDetails;
-
-    @JsonIgnore
     private SuiteExeMail suiteExeMail;
-
     private String build_id;
-
     private String sprint_name;
 
 }

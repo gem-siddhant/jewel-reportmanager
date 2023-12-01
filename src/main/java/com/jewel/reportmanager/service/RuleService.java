@@ -2,7 +2,6 @@ package com.jewel.reportmanager.service;
 
 import com.jewel.reportmanager.dto.*;
 import com.jewel.reportmanager.dto.RuleApi;
-import com.jewel.reportmanager.enums.OperationType;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.exception.CustomDataException;
 import com.jewel.reportmanager.utils.ReportUtils;
@@ -53,11 +52,11 @@ public class RuleService {
 
         if ((sort != null && sortedColumn == null) || (sort == null && sortedColumn != null)) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, Failure, HttpStatus.OK);
         }
         if (sort != null && sort != -1 && sort != 0 && sort != 1) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(INVALID_SORT_VALUE, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(INVALID_SORT_VALUE, null, Failure, HttpStatus.OK);
         }
 
         UserDto user = ReportUtils.getUserDtoFromServetRequest();
@@ -98,7 +97,7 @@ public class RuleService {
                 return createTestCaseDiagnoseReport(payload, pageNo, sort, sortedColumn, errors);
             default:
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(REPORT_ID_NOT_VALID, null, FAILURE, HttpStatus.OK);
+                throw new CustomDataException(REPORT_ID_NOT_VALID, null, Failure, HttpStatus.OK);
         }
 
     }
@@ -136,17 +135,17 @@ public class RuleService {
         long count = RestApiUtils.getSuiteExeCount(p_ids, envs, startTime, endTime);
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
         List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExes(p_ids, envs, startTime, endTime, pageNo, sort, sortedColumn);
         if (suiteReports.isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NUMBER_IS_ABOVE_TOTAL_PAGES, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NUMBER_IS_ABOVE_TOTAL_PAGES, null, Failure, HttpStatus.OK);
         }
         List<String> sRunIds = RestApiUtils.getS_Run_Ids(p_ids, envs, startTime, endTime, pageNo, sort, sortedColumn);
 
@@ -163,7 +162,7 @@ public class RuleService {
         if (!errors.isEmpty()) {
             result.put("errors", errors);
         }
-        return new Response(result, count + " Records found", SUCCESS);
+        return new Response(result, count + " Records found", Success);
     }
 
     /**
@@ -304,13 +303,13 @@ public class RuleService {
 
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
         List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, startTime, endTime, pageNo);
         if (reportNames.isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         long count = getReportDetailsToCreateSuiteSummaryReport(reportNames, p_ids, projects, startTime,
@@ -322,7 +321,7 @@ public class RuleService {
             result.put("errors", errors);
         }
 
-        return new Response(result, count + " Records found", SUCCESS);
+        return new Response(result, count + " Records found", Success);
     }
 
     private Long getReportDetailsToCreateSuiteSummaryReport(List<String> reportNames, List<Long> p_ids, List<String> projects, long startTime, long endTime, List<String> envs, List<Map<String, Object>> data) {
@@ -459,13 +458,13 @@ public class RuleService {
 
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
         List<String> reportNames = RestApiUtils.getReportNames(p_ids, envs, startTime, endTime, pageNo);
         if (reportNames.isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         long count = getReportDetailsToCreateSuiteDiagnoseReport(reportNames, p_ids, projects, startTime,
@@ -477,7 +476,7 @@ public class RuleService {
         }
         result.put("totalElements", count);
 
-        return new Response(result, count + " Records found", SUCCESS);
+        return new Response(result, count + " Records found", Success);
     }
 
     private Long getReportDetailsToCreateSuiteDiagnoseReport(List<String> reportNames, List<Long> pIds, List<String> projects, long startTime, long endTime, List<String> envs, List<Map<String, Object>> data) {
@@ -640,7 +639,7 @@ public class RuleService {
         result.put("headers", headers);
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
         Map<String, Object> resultMap = RestApiUtils.getAllTestExesForTcRunId(payload, pageNo, sort,
                 sortedColumn);
@@ -648,7 +647,7 @@ public class RuleService {
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
         List<Map<String, Object>> data = getDataForTestCaseRunReport(results);
         Collections.reverse(data);
@@ -657,7 +656,7 @@ public class RuleService {
             result.put("errors", errors);
         }
         result.put("totalElements", count);
-        return new Response(result, count + " Records found", SUCCESS);
+        return new Response(result, count + " Records found", Success);
     }
 
     private List<Map<String, Object>> getDataForTestCaseRunReport(List<BasicDBObject> results) {
@@ -722,7 +721,7 @@ public class RuleService {
         result.put("headers", headers);
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
         Map<String, Object> resultMap = RestApiUtils.getAllTestExesForTcRunId(payload, pageNo, sort,
                 sortedColumn);
@@ -730,7 +729,7 @@ public class RuleService {
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
         Map<String, List<TestExeCommonDto>> listMap = new HashMap<>();
         for (BasicDBObject testExeDto : results) {
@@ -829,7 +828,7 @@ public class RuleService {
         }
         result.put("totalElements", listMap.size());
 
-        return new Response(result, listMap.size() + " Records found", SUCCESS);
+        return new Response(result, listMap.size() + " Records found", Success);
     }
 
     private Response createTestCaseDiagnoseReport(RuleApi payload, Integer pageNo, Integer sort,
@@ -843,7 +842,7 @@ public class RuleService {
         result.put("headers", headers);
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
         Map<String, Object> resultMap = RestApiUtils.getAllTestExesForTcRunId(payload, pageNo, sort,
                 sortedColumn);
@@ -851,7 +850,7 @@ public class RuleService {
         List<BasicDBObject> results = (List<BasicDBObject>) resultMap.get("results");
         if (count == 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
         Map<String, List<TestExeCommonDto>> listMap = new HashMap<>();
         for (BasicDBObject testExeDto : results) {
@@ -931,7 +930,7 @@ public class RuleService {
         }
         result.put("totalElements", listMap.size());
 
-        return new Response(result, listMap.size() + " Records found", SUCCESS);
+        return new Response(result, listMap.size() + " Records found", Success);
     }
 
     public Response getRuleActionReportV3(String s_run_id, String tc_run_id, Integer pageNo, Integer sort, String sortedColumn) {
@@ -939,24 +938,24 @@ public class RuleService {
 
             if ((sort != null && sortedColumn == null) || (sort == null && sortedColumn != null)) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, FAILURE, HttpStatus.OK);
+                throw new CustomDataException(BOTH_PARAMETERS_REQUIRED, null, Failure, HttpStatus.OK);
             }
 
             if (sort != null && !List.of(-1, 0, 1).contains(sort)) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(INVALID_SORT_VALUE, null, FAILURE, HttpStatus.OK);
+                throw new CustomDataException(INVALID_SORT_VALUE, null, Failure, HttpStatus.OK);
             }
 
             if (pageNo != null && pageNo <= 0) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+                throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
             }
 
             SuiteExeDto getSuite = RestApiUtils.getSuiteExe(s_run_id);
 
             if (getSuite == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+                throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
             }
 
             List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
@@ -972,11 +971,11 @@ public class RuleService {
             ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
             if (project == null) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
             }
             if (!ReportUtils.validateRoleWithViewerAccess(user1, project)) {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Failure, HttpStatus.NOT_ACCEPTABLE);
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -1059,7 +1058,7 @@ public class RuleService {
                     result.put("TestCase_Details", null);
                 }
 
-                return new Response(result, EXE_REPORT_SUCCESSFULLY_FETCHED, SUCCESS);
+                return new Response(result, EXE_REPORT_SUCCESSFULLY_FETCHED, Success);
             }
             else {
                 return reportUtils.populateResultWithoutTestExes(
@@ -1096,7 +1095,7 @@ public class RuleService {
         }
         if (project == null && !user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString())) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
 
         ProjectRoleDto projectRole = RestApiUtils.getProjectRoleEntity(project.getPid(), user.getUsername(), ACTIVE_STATUS);
@@ -1107,10 +1106,10 @@ public class RuleService {
                         || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
 
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         } else if (projectRole != null && !projectRole.getRole().equalsIgnoreCase("ADMIN")) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         } else {
 
             if (buildId != null || sprint_name != null) {
@@ -1124,13 +1123,13 @@ public class RuleService {
                 }
             } else {
                 log.error("Error occurred due to records not found");
-                throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, FAILURE, HttpStatus.BAD_REQUEST);
+                throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, Failure, HttpStatus.BAD_REQUEST);
             }
             RestApiUtils.updateSuiteExe(s_run_id, suiteExeDto);
             Map<String, Object> messageMap = Map.of(s_run_id, "Updated");
             simpMessagingTemplate.convertAndSendToUser(String.valueOf(project.getPid()), "/private", messageMap);
 
-            return new Response(null, REPORT_UPDATED_SUCCESSFULLY, SUCCESS);
+            return new Response(null, REPORT_UPDATED_SUCCESSFULLY, Success);
         }
     }
 
@@ -1148,7 +1147,7 @@ public class RuleService {
         }
         if (project == null && !user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString())) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
 
         ProjectRoleDto projectRole = RestApiUtils.getProjectRoleEntity(project.getPid(), user.getUsername(), ACTIVE_STATUS);
@@ -1158,16 +1157,16 @@ public class RuleService {
                         && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany()))
                         || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_INSERT_DATA, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         } else if (projectRole != null && !projectRole.getRole().equalsIgnoreCase("ADMIN")) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_NOT_ADMIN_ACCESS_TO_PROJECT, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         } else {
             Map<String, Object> data = new HashMap<>();
             data.put("Build ID", suiteExeDto.getBuild_id());
             data.put("Sprint Name", suiteExeDto.getSprint_name());
 
-            return new Response(data, DETAILS_FETCHED_SUCCESSFULLY, SUCCESS);
+            return new Response(data, DETAILS_FETCHED_SUCCESSFULLY, Success);
         }
 
     }
@@ -1180,18 +1179,18 @@ public class RuleService {
 
         if (getSuite == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
         if (project == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
 
         }
         if (!ReportUtils.validateRoleWithViewerAccess(user1, project)) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -1205,13 +1204,13 @@ public class RuleService {
 
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
         List<SuiteExeDto> suiteReports = RestApiUtils.getSuiteExesForSuiteTimeline(getSuite.getP_id(), category, getSuite.getEnv(), getSuite.getReport_name(), starttime, endtime, pageNo, sort, sortedColumn);
         if (suiteReports.isEmpty()) {
             result.put("data", data);
-            return new Response(result, NO_RECORDS_FOUND, SUCCESS);
+            return new Response(result, NO_RECORDS_FOUND, Success);
         }
         List<String> sRunIds = RestApiUtils.getS_Run_IdsForSuiteTimeline(getSuite.getP_id(), category, getSuite.getEnv(), getSuite.getReport_name(), starttime, endtime, pageNo, sort, sortedColumn);
 
@@ -1322,7 +1321,7 @@ public class RuleService {
         Collections.reverse(data);
         result.put("data", data);
 
-        return new Response(result, data.size() + " record(s) fetched successfully", SUCCESS);
+        return new Response(result, data.size() + " record(s) fetched successfully", Success);
     }
 
     private boolean verifySearch(String search, Set<String> tokenUserSet) {
@@ -1341,17 +1340,17 @@ public class RuleService {
         SuiteExeDto getSuite = RestApiUtils.getSuiteExe(s_run_id);
         if (getSuite == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
         if (project == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
         if (!ReportUtils.validateRoleWithViewerAccess(user, project)) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
         String azureUrl = "https://dev.azure.com/GEM-QualityEngineering/_workitems/edit/";
@@ -1404,12 +1403,12 @@ public class RuleService {
             }
         }
         if (jiraList.isEmpty() && azureList.isEmpty()) {
-            return new Response(null, NO_TICKETS_FOUND, SUCCESS);
+            return new Response(null, NO_TICKETS_FOUND, Success);
         }
         type.put("Jira", jiraList);
         type.put("Azure", azureList);
 
-        return new Response(type, TICKETS_FETCHED_SUCCESSFULLY, SUCCESS);
+        return new Response(type, TICKETS_FETCHED_SUCCESSFULLY, Success);
     }
 
 }

@@ -1,7 +1,10 @@
 package com.jewel.reportmanager.utils;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.jewel.reportmanager.dto.*;
+import com.jewel.reportmanager.enums.OperationType;
 import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -44,6 +47,7 @@ public class RestApiUtils {
     public void setInsertionManagerUrl(String insertionManagerUrl) {
         RestApiUtils.insertionManagerUrl = insertionManagerUrl;
     }
+    private static ObjectMapper mapper = new ObjectMapper();
 
     /**
      * Returns a list of project role pid(s) for pid, status and username.
@@ -746,7 +750,7 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("varianceId", varianceId.stream().map(Object::toString).collect(Collectors.joining(",")));
+        uriVariables.put("varianceId", varianceId.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.joining(",")));
         uriVariables.put("varianceStatus", varianceStatus);
         try {
             ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
@@ -774,24 +778,23 @@ public class RestApiUtils {
     public static StepsDto getSteps(String tc_run_id) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
-        HttpEntity httpEntity = new HttpEntity(null, headers);
-        Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("tc_run_id", tc_run_id);;
-        try {
-            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/steps?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
-            Gson gson = new Gson();
-            String json = gson.toJson(response.getBody());
-            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
-            }.getType());
-            Object data = convertedMap.get("data");
-            Type type = new TypeToken<StepsDto>() {
-            }.getType();
+        HttpEntity httpEntity = new HttpEntity<>(null, headers);
 
-            return gson.fromJson(gson.toJson(data), type);
+        try {
+            Response response = restTemplate.exchange(
+                    insertionManagerUrl + "/v1/steps?tc_run_id={tc_run_id}",
+                    HttpMethod.GET,
+                    httpEntity,
+                    Response.class,
+                    Collections.singletonMap("tc_run_id", tc_run_id)
+            ).getBody();
+            if(response!= null && response.getOperation().equals(OperationType.Success)){
+                return mapper.convertValue(response.getData(), new TypeReference<>() {});
+            }
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Steps not found for tc_run_id: {}", tc_run_id);
-            return null;
         }
+        return null;
     }
 
     /**
