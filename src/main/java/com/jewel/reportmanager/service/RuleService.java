@@ -1122,8 +1122,7 @@ public class RuleService {
                     suiteExeDto.setSprint_name(sprint_name);
                 }
             } else {
-                log.error("Error occurred due to records not found");
-                throw new CustomDataException(REQUIRED_FIELDS_CANNOT_BE_NULL, null, Failure, HttpStatus.BAD_REQUEST);
+                throw new CustomDataException("build id or sprint name is missing, one of these is mandatory ", null, Failure, HttpStatus.BAD_REQUEST);
             }
             RestApiUtils.updateSuiteExe(s_run_id, suiteExeDto);
             Map<String, Object> messageMap = Map.of(s_run_id, "Updated");

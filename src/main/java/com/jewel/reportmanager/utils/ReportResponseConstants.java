@@ -40,7 +40,6 @@ public class ReportResponseConstants {
     public static final String USER_NOT_ACCESS_TO_INSERT_DATA = "User don't have access to insert data";
     public static final String PROJECT_NOT_EXISTS = "Project does not exist";
     public static final String USER_NOT_ADMIN_ACCESS_TO_PROJECT = "User don't have Admin access to the project";
-    public static final String REQUIRED_FIELDS_CANNOT_BE_NULL = "Required fields can not be null";
     public static final String NO_RECORDS_FOUND = "No record(s) found !";
     public static final String NO_TICKETS_FOUND =  "No tickets found !";
     public static final String TICKETS_FETCHED_SUCCESSFULLY =  "Tickets fetched successfully";
