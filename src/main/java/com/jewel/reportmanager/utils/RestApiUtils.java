@@ -834,6 +834,30 @@ public class RestApiUtils {
         }
     }
 
+    public static List<TestExeDto> fetchTestExes(String s_run_id, Integer sort, String sortedColumn) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity<?> httpEntity = new HttpEntity<>(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("s_run_id", s_run_id);
+        uriVariables.put("sortOrder", sort);
+        uriVariables.put("sortedColumn", sortedColumn);
+        try {
+           return restTemplate.exchange(
+                   insertionManagerUrl + "/v1/fetchTestExesList?s_run_id={s_run_id}&sortOrder={sortOrder}&sortedColumn={sortedColumn}",
+                   HttpMethod.GET,
+                   httpEntity,
+                   new ParameterizedTypeReference<List<TestExeDto>>() {},
+                   uriVariables).getBody();
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.info("Test exe list is empty for s_run_id: {}, sort: {} and sortedColumn: {}", s_run_id, sort, sortedColumn);
+            return List.of();
+        }
+    }
+
+
+
+
     /**
      * Returns a list of suite exes for report name, pid, projects, startTime, endTime, env.
      *
