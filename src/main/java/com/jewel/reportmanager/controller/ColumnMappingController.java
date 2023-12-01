@@ -44,7 +44,7 @@ public class ColumnMappingController {
         try {
             ColumnMapping columnMapping = this.modelMapper.map(columnMappingDto, ColumnMapping.class);
             Map<String, Object> result = columnMappingService.addColumnMapping(columnMapping, request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(new Response(result, COLUMN_MAPPING_CREATE_SUCCESSFULLY, SUCCESS));
+            return ResponseEntity.status(HttpStatus.CREATED).body(new Response(result, COLUMN_MAPPING_CREATE_SUCCESSFULLY, Success));
         } catch (CustomDataException ex) {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
         }
@@ -60,7 +60,7 @@ public class ColumnMappingController {
         try {
             ColumnMapping columnMapping = this.modelMapper.map(columnMappingDto, ColumnMapping.class);
             Map<String, Object> result = columnMappingService.updateColumnMapping(columnMapping, request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(new Response(result, COLUMN_MAPPING_UPDATE_SUCCESSFULLY, SUCCESS));
+            return ResponseEntity.status(HttpStatus.CREATED).body(new Response(result, COLUMN_MAPPING_UPDATE_SUCCESSFULLY, Success));
         } catch (CustomDataException ex) {
             return ResponseEntity.status(ex.getHttpStatus()).body(new Response(ex.getData(), ex.getMessage(), ex.getOperationType()));
         }
@@ -92,8 +92,8 @@ public class ColumnMappingController {
                                                     @RequestParam @NotEmpty final List<String> frameworks) {
         List<String> response = columnMappingService.findColumnMapping(pid, name, frameworks);
         if (response.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new Response(null, COLUMN_DETAILS_NOT_FOUND, FAILURE));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new Response(null, COLUMN_DETAILS_NOT_FOUND, Failure));
         }
-        return ResponseEntity.status(HttpStatus.OK).body(new Response(response, DATA_FETCHED_SUCCESSFULLY, SUCCESS));
+        return ResponseEntity.status(HttpStatus.OK).body(new Response(response, DATA_FETCHED_SUCCESSFULLY, Success));
     }
 }

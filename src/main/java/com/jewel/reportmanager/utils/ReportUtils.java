@@ -34,8 +34,7 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.jewel.reportmanager.enums.OperationType.FAILURE;
-import static com.jewel.reportmanager.enums.OperationType.SUCCESS;
+import static com.jewel.reportmanager.enums.OperationType.*;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
 import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
 import static com.jewel.reportmanager.enums.UserRole.SUPER_ADMIN;
@@ -147,7 +146,7 @@ public class ReportUtils {
         TestExeDto tempTest = RestApiUtils.getTestExe(tc_run_id);
         if (tempTest == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
         }
 
         String username = ReportUtils.getUserDtoFromServetRequest().getUsername();
@@ -157,19 +156,19 @@ public class ReportUtils {
         SuiteExeDto getSuite = RestApiUtils.getSuiteExe(tempTest.getS_run_id());
         if (getSuite == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
         if (project == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
 
         ProjectRoleDto currentProject = RestApiUtils.getProjectRoleByPidAndUsername(getSuite.getP_id(), username);
         if (currentProject == null && !((user.getRole().equalsIgnoreCase(UserRole.ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
         List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
@@ -413,7 +412,7 @@ public class ReportUtils {
         stepData.put("data", stepsVariableValue);
         stepData.put("tc_run_id", tc_run_id);
 
-        return new Response(stepData, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+        return new Response(stepData, DATA_FETCHED_SUCCESSFULLY, Success);
     }
 
     public Response populateResultWithoutTestExes(
@@ -439,21 +438,21 @@ public class ReportUtils {
 
         if (getSuite.getTestcase_details() == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
         }
         if(getSuite.getTestcase_details().isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, Failure, HttpStatus.OK);
         }
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
         List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn, false);
         if (tempTest.isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
         }
 
         Set<String> frameworks = new HashSet<>();
@@ -616,7 +615,7 @@ public class ReportUtils {
             result.put("TestCase_Details", testcaseDetails);
             result.put("totalElements", getSuite.getTestcase_details().size());
 
-            return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+            return new Response(result, DATA_FETCHED_SUCCESSFULLY, Success);
         }
 
         List<String> data = new ArrayList<>((Set<String>) testcaseDetails.get("headers"));
@@ -624,7 +623,7 @@ public class ReportUtils {
         result.put("TestCase_Details", testcaseDetails);
         result.put("totalElements", getSuite.getTestcase_details().size());
 
-        return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+        return new Response(result, DATA_FETCHED_SUCCESSFULLY, Success);
     }
 
     public static Object createTimeReportHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite) {
@@ -1045,7 +1044,7 @@ public class ReportUtils {
         UserDto userDto = getUsernameAndIsDeleted(username, false);
         if (userDto == null) {
             log.error("Error occurred while trying to fetch user for username: {}", username);
-            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
         log.info("User details from servlet request: {}", userDto);
         return userDto;

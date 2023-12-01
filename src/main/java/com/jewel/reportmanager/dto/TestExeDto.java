@@ -86,11 +86,7 @@ public class TestExeDto {
     public Map<String, Object> getUser_defined_data() {
         return user_defined_data;
     }
-
-    @JsonIgnore
     private ClassificationDetails classificationDetails;
-
-    @JsonIgnore
     private Long varianceId;
 
     @JsonIgnore
