@@ -7,11 +7,13 @@ import com.jewel.reportmanager.enums.UserRole;
 import com.jewel.reportmanager.service.JwtHelperService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import javax.servlet.http.HttpServletRequest;
 
 import static com.jewel.reportmanager.utils.ReportResponseConstants.ACTIVE_STATUS;
 
+@Component
 public class ColumnsUtils {
 
     private static String projectManagerUrl;
@@ -24,7 +26,7 @@ public class ColumnsUtils {
     private static JwtHelperService jwtHelperService;
 
     @Autowired
-    public void setUserFolderRepository(JwtHelperService jwtHelperService){
+    public void setJwtHelperService(JwtHelperService jwtHelperService){
         ColumnsUtils.jwtHelperService = jwtHelperService;
     }
 

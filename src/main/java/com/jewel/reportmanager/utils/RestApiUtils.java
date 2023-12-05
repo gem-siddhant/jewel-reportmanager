@@ -1,10 +1,14 @@
 package com.jewel.reportmanager.utils;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.jewel.reportmanager.dto.*;
+import com.jewel.reportmanager.enums.OperationType;
 import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
+import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,8 +32,8 @@ import java.util.stream.Collectors;
 public class RestApiUtils {
 
     private static String projectManagerUrl;
-    private static String gemUrl;
     private static RestTemplate restTemplate;
+    private static String insertionManagerUrl;
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
         RestApiUtils.restTemplate = restTemplate;
@@ -39,10 +43,11 @@ public class RestApiUtils {
         RestApiUtils.projectManagerUrl = projectManagerUrl;
     }
 
-    @Value("${gem.url}")
-    public void setGemUrl(String gemUrl) {
-        RestApiUtils.gemUrl = gemUrl;
+    @Value("${insertion.manager.url}")
+    public void setInsertionManagerUrl(String insertionManagerUrl) {
+        RestApiUtils.insertionManagerUrl = insertionManagerUrl;
     }
+    private static ObjectMapper mapper = new ObjectMapper();
 
     /**
      * Returns a list of project role pid(s) for pid, status and username.
@@ -97,7 +102,7 @@ public class RestApiUtils {
         uriVariables.put("username", username);
         uriVariables.put("status", status);
         try {
-            ResponseEntity response = restTemplate.exchange(projectManagerUrl + "/v2/project/role/entity?pid={pid}&username={username}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(projectManagerUrl + "/v2/project/role/entity?pid={pid}&userName={username}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -273,7 +278,7 @@ public class RestApiUtils {
         uriVariables.put("s_end_time", s_end_time);
         uriVariables.put("pageNo", pageNo);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe/report-names?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe/report-names?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -319,7 +324,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -365,7 +370,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe/s_run_ids?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe/s_run_ids?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -411,7 +416,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe/suiteTimeline?p_id={p_id}&category={category}&env={env}&reportName={reportName}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe/suiteTimeline?p_id={p_id}&category={category}&env={env}&reportName={reportName}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -456,7 +461,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe/s_run_ids/suiteTimeline?p_id={p_id}&category={category}&env={env}&reportName={reportName}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe/s_run_ids/suiteTimeline?p_id={p_id}&category={category}&env={env}&reportName={reportName}&s_start_time={s_start_time}&s_end_time={s_end_time}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -496,7 +501,7 @@ public class RestApiUtils {
         uriVariables.put("env", envList);
         uriVariables.put("s_start_time", s_start_time);
         uriVariables.put("s_end_time", s_end_time);
-        ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe/count?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+        ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe/count?p_id={p_id}&env={env}&s_start_time={s_start_time}&s_end_time={s_end_time}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
         Gson gson = new Gson();
         String json = gson.toJson(response.getBody());
         Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -521,7 +526,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         try {
-            return (SuiteExeDto) restTemplate.exchange(gemUrl + "/v2/suitExe?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, SuiteExeDto.class, uriVariables).getBody();
+            return restTemplate.exchange(insertionManagerUrl + "/v2/suiteExe?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, SuiteExeDto.class, uriVariables).getBody();
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Suite exe is empty for s_run_id: {}", s_run_id);
             return null;
@@ -541,7 +546,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/suiteRun?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v2/suiteRun?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -570,7 +575,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("tc_run_id", tc_run_id);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/testcase?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v2/testcase?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -601,7 +606,7 @@ public class RestApiUtils {
         uriVariables.put("reportName", reportName);
         uriVariables.put("status", status);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/suite/reportName/status?reportName={reportName}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v2/suite/reportName/status?reportName={reportName}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -651,39 +656,6 @@ public class RestApiUtils {
     }
 
     /**
-     * Returns column details for pid, report name and frameworks.
-     *
-     * @param pid
-     * @param name
-     * @param frameworks
-     * @return List<String> - column details
-     */
-    public static List<String> findColumnMapping(Long pid, String name, List<String> frameworks) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
-        HttpEntity httpEntity = new HttpEntity(null, headers);
-        Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("pid", pid);
-        uriVariables.put("name", name);
-        uriVariables.put("frameworks", frameworks);
-        try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v2/column/pid/name/frameworks?pid={pid}&name={name}&frameworks={frameworks}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
-            Gson gson = new Gson();
-            String json = gson.toJson(response.getBody());
-            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
-            }.getType());
-            Object data = convertedMap.get("data");
-            Type type = new TypeToken<List<String>>() {
-            }.getType();
-
-            return gson.fromJson(gson.toJson(data), type);
-        } catch (HttpClientErrorException.NotFound ex) {
-            log.info("Column details not found for pid: {}, name: {}, frameworks: {}", pid, name, frameworks);
-            return Collections.EMPTY_LIST;
-        }
-    }
-
-    /**
      * Returns List<TestExeDto> from s_run_id
      *
      * @param s_run_id
@@ -696,7 +668,7 @@ public class RestApiUtils {
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         try {
-            return restTemplate.exchange(gemUrl + "/v2/testExe/list?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, new ParameterizedTypeReference<List<TestExeDto>>() {
+            return restTemplate.exchange(insertionManagerUrl + "/v2/testExe/list?s_run_id={s_run_id}", HttpMethod.GET, httpEntity, new ParameterizedTypeReference<List<TestExeDto>>() {
             }, uriVariables).getBody();
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Suite run is empty for s_run_id: {}", s_run_id);
@@ -715,9 +687,10 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("s_run_ids", s_run_ids);
+        String str_s_run_ids = s_run_ids.stream().map(Object::toString).collect(Collectors.joining(","));
+        uriVariables.put("s_run_ids", str_s_run_ids);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExe?s_run_ids={s_run_ids}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe?s_run_ids={s_run_ids}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -745,7 +718,7 @@ public class RestApiUtils {
         HttpEntity httpEntity = new HttpEntity(suiteExeDto, headers);
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
-        restTemplate.exchange(gemUrl + "/v2/suitExe/update?s_run_id={s_run_id}", HttpMethod.PUT, httpEntity, SuiteExeDto.class, uriVariables).getBody();
+        restTemplate.exchange(insertionManagerUrl + "/v2/suiteExe/update?s_run_id={s_run_id}", HttpMethod.PUT, httpEntity, SuiteExeDto.class, uriVariables).getBody();
     }
 
     /**
@@ -777,10 +750,10 @@ public class RestApiUtils {
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("varianceId", varianceId.stream().map(Object::toString).collect(Collectors.joining(",")));
+        uriVariables.put("varianceId", varianceId.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.joining(",")));
         uriVariables.put("varianceStatus", varianceStatus);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/variance?varianceId={varianceId}&varianceStatus={varianceStatus}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -805,24 +778,23 @@ public class RestApiUtils {
     public static StepsDto getSteps(String tc_run_id) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
-        HttpEntity httpEntity = new HttpEntity(null, headers);
-        Map<String, Object> uriVariables = new HashMap<>();
-        uriVariables.put("tc_run_id", tc_run_id);;
-        try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/steps?tc_run_id={tc_run_id}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
-            Gson gson = new Gson();
-            String json = gson.toJson(response.getBody());
-            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
-            }.getType());
-            Object data = convertedMap.get("data");
-            Type type = new TypeToken<StepsDto>() {
-            }.getType();
+        HttpEntity httpEntity = new HttpEntity<>(null, headers);
 
-            return gson.fromJson(gson.toJson(data), type);
+        try {
+            Response response = restTemplate.exchange(
+                    insertionManagerUrl + "/v1/steps?tc_run_id={tc_run_id}",
+                    HttpMethod.GET,
+                    httpEntity,
+                    Response.class,
+                    Collections.singletonMap("tc_run_id", tc_run_id)
+            ).getBody();
+            if(response!= null && response.getOperation().equals(OperationType.Success)){
+                return mapper.convertValue(response.getData(), new TypeReference<>() {});
+            }
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Steps not found for tc_run_id: {}", tc_run_id);
-            return null;
         }
+        return null;
     }
 
     /**
@@ -832,34 +804,59 @@ public class RestApiUtils {
      * @param pageNo
      * @param sort
      * @param sortedColumn
+     * @param testCaseIdNeeded
      * @return List<TestExeDto>
      */
-    public static List<TestExeDto> getTestExes(String s_run_id, Integer pageNo, Integer sort, String sortedColumn) {
+    public static List<TestExeDto> getTestExes(String s_run_id, Integer pageNo, Integer sort, String sortedColumn, Boolean testCaseIdNeeded) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
         HttpEntity httpEntity = new HttpEntity(null, headers);
         Map<String, Object> uriVariables = new HashMap<>();
         uriVariables.put("s_run_id", s_run_id);
         uriVariables.put("pageNo", pageNo);
-        uriVariables.put("sort", sort);
+        uriVariables.put("sortOrder", sort);
         uriVariables.put("sortedColumn", sortedColumn);
+        uriVariables.put("testCaseIdNeeded", testCaseIdNeeded);
         try {
-            // TODO: This API does not exists and needs to be made
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExesList?s_run_id={s_run_id}&pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExesList?s_run_id={s_run_id}&page={pageNo}&size=8&sortOrder={sortOrder}&sortedColumn={sortedColumn}&testCaseIdNeeded={testCaseIdNeeded}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
-            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
-            }.getType());
-            Object data = convertedMap.get("data");
-            Type type = new TypeToken<List<TestExeDto>>() {
-            }.getType();
-
-            return gson.fromJson(gson.toJson(data), type);
+            if(testCaseIdNeeded != null && testCaseIdNeeded) {
+                List<TestExeDto2> customList = gson.fromJson(json, new TypeToken<List<TestExeDto2>>() {
+                }.getType());
+                ModelMapper modelMapper = new ModelMapper();
+                return customList.stream().map(testExeDto2 -> modelMapper.map(testExeDto2, TestExeDto.class)).collect(Collectors.toList());
+            }
+            return gson.fromJson(json, new TypeToken<List<TestExeDto>>() {}.getType());
         } catch (HttpClientErrorException.NotFound ex) {
             log.info("Test exe list is empty for s_run_id: {} pageNo: {}, sort: {} and sortedColumn: {}", s_run_id, pageNo, sort, sortedColumn);
-            return Collections.EMPTY_LIST;
+            return List.of();
         }
     }
+
+    public static List<TestExeDto> fetchTestExes(String s_run_id, Integer sort, String sortedColumn) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity<?> httpEntity = new HttpEntity<>(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("s_run_id", s_run_id);
+        uriVariables.put("sortOrder", sort);
+        uriVariables.put("sortedColumn", sortedColumn);
+        try {
+           return restTemplate.exchange(
+                   insertionManagerUrl + "/v1/fetchTestExesList?s_run_id={s_run_id}&sortOrder={sortOrder}&sortedColumn={sortedColumn}",
+                   HttpMethod.GET,
+                   httpEntity,
+                   new ParameterizedTypeReference<List<TestExeDto>>() {},
+                   uriVariables).getBody();
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.info("Test exe list is empty for s_run_id: {}, sort: {} and sortedColumn: {}", s_run_id, sort, sortedColumn);
+            return List.of();
+        }
+    }
+
+
+
 
     /**
      * Returns a list of suite exes for report name, pid, projects, startTime, endTime, env.
@@ -891,7 +888,7 @@ public class RestApiUtils {
                 .collect(Collectors.joining(","));
         uriVariables.put("env", envList);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/suiteExe/report_name?report_name={report_name}&p_id={p_id}&projects={projects}&s_start_time={s_start_time}&s_end_time={s_end_time}&env={env}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/suiteExe/report_name?report_name={report_name}&p_id={p_id}&projects={projects}&s_start_time={s_start_time}&s_end_time={s_end_time}&env={env}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -926,7 +923,7 @@ public class RestApiUtils {
                 .collect(Collectors.joining(","));
         uriVariables.put("status", statusList);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExe/testCase?s_run_id={s_run_id}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe/testCase?s_run_id={s_run_id}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -961,7 +958,7 @@ public class RestApiUtils {
         uriVariables.put("sort", sort);
         uriVariables.put("sortedColumn", sortedColumn);
         try {
-            ResponseEntity response = restTemplate.exchange(gemUrl + "/v1/testExe/data?pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.POST, httpEntity, Object.class, uriVariables);
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe/data?pageNo={pageNo}&sort={sort}&sortedColumn={sortedColumn}", HttpMethod.POST, httpEntity, Object.class, uriVariables);
             Gson gson = new Gson();
             String json = gson.toJson(response.getBody());
             Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
@@ -973,7 +970,7 @@ public class RestApiUtils {
             convertedMap = gson.fromJson(gson.toJson(data), type);
             Map<String, Object> resultMap = new HashMap<>();
             resultMap.put("count", (long) Math.floor((Double) convertedMap.get("count")));
-            data = convertedMap.get("testExesData");
+            data = convertedMap.get("results");
             type = new TypeToken<List<BasicDBObject>>() {
             }.getType();
             List<BasicDBObject> basicDBObjectList = gson.fromJson(gson.toJson(data), type);
@@ -990,8 +987,33 @@ public class RestApiUtils {
             resultMap.put("results", basicDBObjectList);
             return resultMap;
         } catch (RestClientException ex) {
-            log.info("Error occurred due to empty map for payload: {}, pageNo: {}, sort: {} and sortedColumn: {}", payload, pageNo, sort, sortedColumn);
+            log.error("Error occurred due to empty map for payload: {}, pageNo: {}, sort: {} and sortedColumn: {}", payload, pageNo, sort, sortedColumn, ex);
             return Collections.emptyMap();
         }
     }
+
+    public static Long getStatusWiseCount(String s_run_id, String status) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        uriVariables.put("s_run_id", s_run_id);
+        uriVariables.put("status", status);
+        try {
+            ResponseEntity response = restTemplate.exchange(insertionManagerUrl + "/v1/testExe/statusCount?s_run_id={s_run_id}&status={status}", HttpMethod.GET, httpEntity, Object.class, uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            Type type = new TypeToken<Long>() {
+            }.getType();
+
+            return gson.fromJson(gson.toJson(data), type);
+        } catch (RestClientException ex) {
+            log.info("Error while fetching status wise count for s_run_id: {} and status: {}", s_run_id, status);
+            return null;
+        }
+    }
+
 }

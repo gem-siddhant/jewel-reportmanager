@@ -55,7 +55,7 @@ public class ColumnMappingService {
 
         if (existingMapping != null) {
             log.error("Column Mapping already present. User: {}, Column Mapping: {}", username, columnMapping);
-            throw new CustomDataException(COLUMN_MAPPING_PRESENT, null, FAILURE, HttpStatus.CONFLICT);
+            throw new CustomDataException(COLUMN_MAPPING_PRESENT, null, Failure, HttpStatus.CONFLICT);
         }
 
         // Set common column properties
@@ -90,12 +90,12 @@ public class ColumnMappingService {
 
         if (existingMapping == null) {
             log.error("Column Mapping details not found. User: {}, Column Mapping ID: {}", username, columnMapping.getId());
-            throw new CustomDataException(COLUMN_MAPPING_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(COLUMN_MAPPING_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         if (!columnMapping.getLevel().equals(existingMapping.getLevel())) {
             log.error("Level is not the same as the previous level. User: {}, Column Mapping ID: {}", username, columnMapping.getId());
-            throw new CustomDataException(LEVEL_NOT_SAME_AS_PREVIOUS_LEVEL, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(LEVEL_NOT_SAME_AS_PREVIOUS_LEVEL, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         // Check access and permissions
@@ -128,7 +128,7 @@ public class ColumnMappingService {
         ColumnMapping columnMapping = columnMappingRepository.findByIdAndIsDeleted(id, false);
         if (columnMapping == null) {
             log.error("Column Mapping details not found. User: {}, Column Mapping ID: {}", username, id);
-            throw new CustomDataException(COLUMN_MAPPING_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.CONFLICT);
+            throw new CustomDataException(COLUMN_MAPPING_DETAILS_NOT_FOUND, null, Failure, HttpStatus.CONFLICT);
         }
         // Check access and permissions
         checkAccessAndPermissions(columnMapping, user);
@@ -141,7 +141,7 @@ public class ColumnMappingService {
 
         log.info("Column Mapping deleted successfully. User: {}, Column Mapping ID: {}", username, id);
 
-        return new Response(null, COLUMN_MAPPING_DELETE_SUCCESSFULLY, SUCCESS);
+        return new Response(null, COLUMN_MAPPING_DELETE_SUCCESSFULLY, Success);
     }
 
 
@@ -196,7 +196,7 @@ public class ColumnMappingService {
         for (String value : columnMapping.getColumns()) {
             if (value == null || value.isEmpty()) {
                 log.error("Invalid column value in the column mapping. Value: {}", value);
-                throw new CustomDataException(COLUMN_MAPPING_VALUE_NOT_CORRECT, null, FAILURE, HttpStatus.BAD_REQUEST);
+                throw new CustomDataException(COLUMN_MAPPING_VALUE_NOT_CORRECT, null, Failure, HttpStatus.BAD_REQUEST);
             }
             columnMapping.getColumns().set(i, value.toUpperCase());
             i++;
@@ -229,7 +229,7 @@ public class ColumnMappingService {
     private void checkForMissingProjectId(ColumnMapping columnMapping) {
         if (!isFrameworkLevel(columnMapping) && columnMapping.getPid() == null) {
             log.error("Project ID is missing in the column mapping. Column Mapping ID: {}", columnMapping.getId());
-            throw new CustomDataException(PROJECT_ID_IS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(PROJECT_ID_IS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
     }
 
@@ -246,15 +246,15 @@ public class ColumnMappingService {
             ProjectDto project = RestApiUtils.getProjectByPidAndStatus(columnMapping.getPid(), "ACTIVE");
             if (project == null) {
                 log.error("Project does not exist. Project ID: {}", columnMapping.getPid());
-                throw new CustomDataException(PROJECT_DOES_NOT_EXIST, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+                throw new CustomDataException(PROJECT_DOES_NOT_EXIST, null, Failure, HttpStatus.NOT_ACCEPTABLE);
             }
             if (!ColumnsUtils.validateRoleWithViewerAccess(user, project)) {
                 log.error("User doesn't have access to view this report. User: {}", user.getUsername());
-                throw new CustomDataException(USER_DOES_NOT_HAVE_ACCESS_TO_VIEW_REPORT, null, INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+                throw new CustomDataException(USER_DOES_NOT_HAVE_ACCESS_TO_VIEW_REPORT, null, Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
             }
         } else if (!user.getRole().equalsIgnoreCase(UserRole.SUPER_ADMIN.toString())) {
             log.error("User does not have super-admin access. User: {}", user.getUsername());
-            throw new CustomDataException(USER_DOES_NOT_HAVE_SUPER_ADMIN_ACCESS, null, FAILURE, HttpStatus.UNAUTHORIZED);
+            throw new CustomDataException(USER_DOES_NOT_HAVE_SUPER_ADMIN_ACCESS, null, Failure, HttpStatus.UNAUTHORIZED);
         }
     }
 

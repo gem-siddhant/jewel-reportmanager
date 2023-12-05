@@ -7,10 +7,12 @@ import com.jewel.reportmanager.enums.OperationType;
 import com.jewel.reportmanager.enums.StatusColor;
 import com.jewel.reportmanager.enums.UserRole;
 import com.jewel.reportmanager.exception.CustomDataException;
+import com.jewel.reportmanager.service.ColumnMappingService;
 import com.mongodb.BasicDBObject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
+import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -31,8 +34,7 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.jewel.reportmanager.enums.OperationType.FAILURE;
-import static com.jewel.reportmanager.enums.OperationType.SUCCESS;
+import static com.jewel.reportmanager.enums.OperationType.*;
 import static com.jewel.reportmanager.enums.ProjectAccessType.ADMIN;
 import static com.jewel.reportmanager.enums.TestCaseType.MANUAL;
 import static com.jewel.reportmanager.enums.UserRole.SUPER_ADMIN;
@@ -43,10 +45,13 @@ import static com.jewel.reportmanager.utils.ReportResponseConstants.*;
 public class ReportUtils {
 
     private static String userManagerUrl;
-    private static String gemUrl;
     private static String projectManagerUrl;
     private static MongoOperations mongoOperations;
     private static RestTemplate restTemplate;
+
+    @Autowired
+    private ColumnMappingService columnMappingService;
+
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
         ReportUtils.restTemplate = restTemplate;
@@ -60,11 +65,6 @@ public class ReportUtils {
     @Value("${project.manager.url}")
     public void setProjectManagerUrl(String projectManagerUrl) {
         ReportUtils.projectManagerUrl = projectManagerUrl;
-    }
-
-    @Value("${gem.url}")
-    public void setGemUrl(String gemUrl) {
-        ReportUtils.gemUrl = gemUrl;
     }
 
     @Autowired
@@ -146,7 +146,7 @@ public class ReportUtils {
         TestExeDto tempTest = RestApiUtils.getTestExe(tc_run_id);
         if (tempTest == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
         }
 
         String username = ReportUtils.getUserDtoFromServetRequest().getUsername();
@@ -156,19 +156,19 @@ public class ReportUtils {
         SuiteExeDto getSuite = RestApiUtils.getSuiteExe(tempTest.getS_run_id());
         if (getSuite == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_FOUND);
+            throw new CustomDataException(SUITE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_FOUND);
         }
 
         ProjectDto project = RestApiUtils.getProjectByPidAndStatus(getSuite.getP_id(), ACTIVE_STATUS);
         if (project == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PROJECT_NOT_EXISTS, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(PROJECT_NOT_EXISTS, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
 
         ProjectRoleDto currentProject = RestApiUtils.getProjectRoleByPidAndUsername(getSuite.getP_id(), username);
         if (currentProject == null && !((user.getRole().equalsIgnoreCase(UserRole.ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(SUPER_ADMIN.toString()))) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.INFO, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
+            throw new CustomDataException(USER_NOT_ACCESS_TO_PROJECT, null, OperationType.Info, HttpStatus.NOT_ACCEPTABLE, REQUEST_ACCESS);
         }
 
         List<VarianceClassificationDto> varianceClassificationList = RestApiUtils.getVarianceClassificationList(getSuite.getVarianceIds(), ACTIVE_STATUS);
@@ -236,78 +236,81 @@ public class ReportUtils {
                         }
                     }
 
-                    if (key.equalsIgnoreCase("sub_step") && stepMap.get("sub_step") != null) {
-                        List<Map<String, Object>> subStepsVariableValue = new ArrayList<>();
-                        List<Map<String, Object>> maps = (List<Map<String, Object>>) stepMap.get(key);
-                        Set<String> subStepsHeaders = new HashSet<>();
-                        for (Map<String, Object> map1 : maps) {
-                            Map<String, Object> subStepsTemp = new HashMap<>();
-                            subStepsHeaders.addAll(map1.keySet());
-                            for (String key2 : subStepsHeaders) {
-                                if (key2.equalsIgnoreCase("start_time") || key2.equalsIgnoreCase("end_time")) {
-                                    Map<String, Object> timeReport = new HashMap<>();
-                                    timeReport.put("subType", "datetime");
-                                    subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                            ReportUtils.createCustomObject(map1.get(key2), "date", map1.get(key2),
-                                                    "center", timeReport));
-                                } else if (key2.equalsIgnoreCase("status")) {
-                                    if (subStepStatus != null) {
+                    if (key.equalsIgnoreCase("sub_step")) {
+                        if(stepMap.get("sub_step") != null) {
+                            List<Map<String, Object>> subStepsVariableValue = new ArrayList<>();
+                            List<Map<String, Object>> maps = (List<Map<String, Object>>) stepMap.get(key);
+                            Set<String> subStepsHeaders = new HashSet<>();
+                            for (Map<String, Object> map1 : maps) {
+                                Map<String, Object> subStepsTemp = new HashMap<>();
+                                subStepsHeaders.addAll(map1.keySet());
+                                for (String key2 : subStepsHeaders) {
+                                    if (key2.equalsIgnoreCase("start_time") || key2.equalsIgnoreCase("end_time")) {
+                                        Map<String, Object> timeReport = new HashMap<>();
+                                        timeReport.put("subType", "datetime");
                                         subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                ReportUtils.createCustomObject(subStepStatus, "crud", subStepStatus,
-                                                        "center", statusSubType));
+                                                ReportUtils.createCustomObject(map1.get(key2), "date", map1.get(key2),
+                                                        "center", timeReport));
+                                    } else if (key2.equalsIgnoreCase("status")) {
+                                        if (subStepStatus != null) {
+                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
+                                                    ReportUtils.createCustomObject(subStepStatus, "crud", subStepStatus,
+                                                            "center", statusSubType));
+                                        } else {
+                                            subStepsTemp.put(ReportUtils.changeKeyValue(key2),
+                                                    ReportUtils.createCustomObject(map1.get(key2), "crud", map1.get(key2),
+                                                            "center", statusSubType));
+                                        }
+                                        subStepsTemp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
+                                        if (map1.get(key2) != null && (map1.get(key2).toString().equalsIgnoreCase("ERR") || map1.get(key2).toString().equalsIgnoreCase("FAIL")) || (classificationDetails != null && classificationDetails.isFalsePositiveStatus())) {
+                                            if (varianceIsActive) {
+                                                subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
+                                            } else if (falsePositiveIsActive && classificationDetails != null) {
+                                                subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
+                                                if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
+                                                    subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
+                                            } else if (varianceIsThere) {
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
+                                            } else if (falsePositiveIsThere && classificationDetails != null) {
+                                                subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
+                                                if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
+                                                    subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
+                                            }
+                                        }
+
+                                    } else if (key2.equalsIgnoreCase("screenshot")) {
+                                        subStepsTemp.put(ReportUtils.changeKeyValue(key2),
+                                                ReportUtils.createCustomObject(map1.get(key2), "image",
+                                                        map1.get(key2),
+                                                        "center"));
+                                        Map<String, Object> screenshot = new HashMap<>();
+                                        if (map1.get(key2) != null) {
+                                            if (map1.get("step name") != null) {
+                                                screenshot.put(map1.get("step name").toString(), (map1.get(key2)));
+                                            } else {
+                                                screenshot.put(map1.get("title").toString(), (map1.get(key2)));
+                                            }
+                                            gallery.add(screenshot);
+                                        }
+
                                     } else {
                                         subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                                ReportUtils.createCustomObject(map1.get(key2), "crud", map1.get(key2),
-                                                        "center", statusSubType));
-                                    }
-                                    subStepsTemp.put("EDIT_ICON", ReportUtils.createCustomObject("INACTIVE", "text", "INACTIVE", "left"));
-                                    if (map1.get(key2) != null && (map1.get(key2).toString().equalsIgnoreCase("ERR") || map1.get(key2).toString().equalsIgnoreCase("FAIL")) || (classificationDetails != null && classificationDetails.isFalsePositiveStatus())) {
-                                        if (varianceIsActive) {
-                                            subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_ACTIVE", "text", "VARIANCE_ACTIVE", "left"));
-                                        } else if (falsePositiveIsActive && classificationDetails != null) {
-                                            subStepsTemp.put("ISCLICKABLE", ReportUtils.createCustomObject(false, "text", false, "left"));
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_ACTIVE", "text", "FALSE_POSITIVE_ACTIVE", "left"));
-                                            if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                                subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                        } else if (varianceIsThere) {
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("VARIANCE_INACTIVE", "text", "VARIANCE_INACTIVE", "left"));
-                                        } else if (falsePositiveIsThere && classificationDetails != null) {
-                                            subStepsTemp.put("ICON", ReportUtils.createCustomObject("FALSE_POSITIVE_INACTIVE", "text", "FALSE_POSITIVE_INACTIVE", "left"));
-                                            if (classificationDetails.getReason() != null && !classificationDetails.getReason().isEmpty())
-                                                subStepsTemp.put("REASON", ReportUtils.createCustomObject(classificationDetails.getReason(), "text", classificationDetails.getReason(), "left"));
-                                        }
+                                                ReportUtils.createCustomObject(map1.get(key2), "text", map1.get(key2),
+                                                        "left"));
                                     }
 
-                                } else if (key2.equalsIgnoreCase("screenshot")) {
-                                    subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                            ReportUtils.createCustomObject(map1.get(key2), "image",
-                                                    map1.get(key2),
-                                                    "center"));
-                                    Map<String, Object> screenshot = new HashMap<>();
-                                    if (map1.get(key2) != null) {
-                                        if (map1.get("step name") != null) {
-                                            screenshot.put(map1.get("step name").toString(), (map1.get(key2)));
-                                        } else {
-                                            screenshot.put(map1.get("title").toString(), (map1.get(key2)));
-                                        }
-                                        gallery.add(screenshot);
-                                    }
-
-                                } else {
-                                    subStepsTemp.put(ReportUtils.changeKeyValue(key2),
-                                            ReportUtils.createCustomObject(map1.get(key2), "text", map1.get(key2),
-                                                    "left"));
                                 }
-
+                                subStepsVariableValue.add(subStepsTemp);
                             }
-                            subStepsVariableValue.add(subStepsTemp);
+                            Map<String, Object> subStepsData = new HashMap<>();
+                            subStepsData.put("data", subStepsVariableValue);
+                            subStepsData.put("headers", ReportUtils.headersDataStepRefactor(subStepsHeaders));
+                            temp.put("SUB_STEPS", subStepsData);
                         }
-                        Map<String, Object> subStepsData = new HashMap<>();
-                        subStepsData.put("data", subStepsVariableValue);
-                        subStepsData.put("headers", ReportUtils.headersDataStepRefactor(subStepsHeaders));
-                        temp.put("SUB_STEPS", subStepsData);
-                    } else continue;
+                        continue;
+                    }
 
                     if (key.equalsIgnoreCase("start_time") || key.equalsIgnoreCase("end_time")) {
                         Map<String, Object> timeReport = new HashMap<>();
@@ -409,7 +412,7 @@ public class ReportUtils {
         stepData.put("data", stepsVariableValue);
         stepData.put("tc_run_id", tc_run_id);
 
-        return new Response(stepData, "", SUCCESS);
+        return new Response(stepData, DATA_FETCHED_SUCCESSFULLY, Success);
     }
 
     public Response populateResultWithoutTestExes(
@@ -421,12 +424,13 @@ public class ReportUtils {
             String sortedColumn,
             Map<Long, VarianceClassificationDto> varianceList,
             List<Long> varianceIds,
-            ProjectDto project
+            ProjectDto project,
+            String user
     ) {
-        Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
-        if (last5RunsBarGraph != null) {
-            result.put("Last_5_Runs_Bar_Chart", last5RunsBarGraph);
-        }
+//        Map<String, Object> last5RunsBarGraph = ReportUtils.Last5RunsStackedBarChartBySuiteExe(getSuite);
+//        if (last5RunsBarGraph != null) {
+//            result.put("Last_5_Runs_Bar_Chart", last5RunsBarGraph);
+//        }
         Map<String, Object> testcaseDetails = new HashMap<>();
         List<Map<String, Object>> testcaseDetailsdata = new ArrayList<>();
         Map<String, List<Map<String, Object>>> statusFilterMap = new HashMap<>();
@@ -434,21 +438,21 @@ public class ReportUtils {
 
         if (getSuite.getTestcase_details() == null) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
         }
         if(getSuite.getTestcase_details().isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND_FOR_INTERVAL, null, Failure, HttpStatus.OK);
         }
         if (pageNo != null && pageNo <= 0) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(PAGE_NO_CANNOT_BE_NEGATIVE_OR_ZERO, null, Failure, HttpStatus.OK);
         }
 
-        List<TestExeDto> tempTest = RestApiUtils.getTestExes(s_run_id, pageNo, sort, sortedColumn);
+        List<TestExeDto> tempTest = RestApiUtils.fetchTestExes(s_run_id, sort, sortedColumn);
         if (tempTest.isEmpty()) {
             log.error("Error occurred due to records not found");
-            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.OK);
+            throw new CustomDataException(TESTCASE_DETAILS_NOT_FOUND, null, Failure, HttpStatus.OK);
         }
 
         Set<String> frameworks = new HashSet<>();
@@ -506,6 +510,7 @@ public class ReportUtils {
 
             map.remove("classificationDetails");
             map.remove("stepVarianceIds");
+            map.remove("job_name");
             testcaseDetailsHeaders.addAll(map.keySet());
             Map<String, Object> temp = new HashMap<>();
             for (String key : map.keySet()) {
@@ -574,10 +579,22 @@ public class ReportUtils {
         if (CategoryBarChart != null) {
             result.put("Category_Bar_Chart", CategoryBarChart);
         }
-        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
-        result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
+        result.put("Execution Info", ReportUtils.createExecutionInfoHeaders(getSuite));
+        result.put("Infra Headers", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "infraDetails"));
+        result.put("User Details", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "userDetails"));
+        result.put("Build Details", ReportUtils.createBuildHeaders(getSuite));
+        result.put("Execution details", ReportUtils.createExecutionDetailsHeaders(tempTest));
+        result.put("Time Details", ReportUtils.createTimeReportHeaders(tempTest,getSuite));
         result.put("status", getSuite.getStatus());
-        List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
+
+        ProjectRoleDto projectRole = RestApiUtils.getProjectRoleByPidAndUsername(project.getPid(), user);
+        if(projectRole!=null) {
+            result.put("Project role", projectRole.getRole());
+        } else {
+            result.put("Project role","ADMIN");
+        }
+
+        List<String> columns = columnMappingService.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && columns.size() > 0) {
             List<String> headers = new ArrayList<>();
             for (String header : testcaseDetailsHeaders) {
@@ -598,7 +615,7 @@ public class ReportUtils {
             result.put("TestCase_Details", testcaseDetails);
             result.put("totalElements", getSuite.getTestcase_details().size());
 
-            return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+            return new Response(result, DATA_FETCHED_SUCCESSFULLY, Success);
         }
 
         List<String> data = new ArrayList<>((Set<String>) testcaseDetails.get("headers"));
@@ -606,7 +623,198 @@ public class ReportUtils {
         result.put("TestCase_Details", testcaseDetails);
         result.put("totalElements", getSuite.getTestcase_details().size());
 
-        return new Response(result, DATA_FETCHED_SUCCESSFULLY, SUCCESS);
+        return new Response(result, DATA_FETCHED_SUCCESSFULLY, Success);
+    }
+
+    public static Object createTimeReportHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite) {
+        Map<String, Object> timeSubType = new HashMap<>();
+        Map<String, Object> data = new HashMap<>();
+        timeSubType.put("Clock Start Time", getSuite.getS_start_time());
+        if (getSuite.getS_end_time() != 0) {
+
+            timeSubType.put("Clock End Time", getSuite.getS_end_time());
+            timeSubType.put("Total Duration", getDuration(getSuite.getS_start_time(), getSuite.getS_end_time()));
+        } else {
+            timeSubType.put("Clock End Time", null);
+            timeSubType.put("Total Duration", null);
+        }
+
+        data.put("Clock Time", timeSubType);
+        timeSubType = new HashMap<>();
+
+        long minStartTime = testcaseList.get(0).getStart_time();
+        long maxEndTime = testcaseList.get(0).getEnd_time();
+
+        for (TestExeDto test : testcaseList) {
+            if (test.getStart_time() < minStartTime) {
+                minStartTime = test.getStart_time();
+            }
+            if (test.getEnd_time() > maxEndTime) {
+                maxEndTime = test.getEnd_time();
+            }
+        }
+
+        timeSubType.put("Automation Start Time", minStartTime);
+        if (maxEndTime != 0) {
+
+            timeSubType.put("Automation End Time", maxEndTime);
+            timeSubType.put("Total Duration", getDuration(minStartTime, maxEndTime));
+        } else {
+            timeSubType.put("Automation End Time", null);
+            timeSubType.put("Total Duration", null);
+        }
+        data.put("Automation Time", timeSubType);
+
+        return data;
+    }
+
+    public static Object createExecutionDetailsHeaders(List<TestExeDto> testcaseList) {
+        StringBuilder run_type = new StringBuilder();
+        StringBuilder run_mode = new StringBuilder();
+        Set<String> run_typeSet = new HashSet<>();
+        Set<String> run_modeSet = new HashSet<>();
+        Map<String, Object> data = new HashMap<>();
+        for (TestExeDto t : testcaseList) {
+            if (!run_modeSet.contains(t.getRun_mode())) {
+                run_mode.append(t.getRun_mode()).append(", ");
+                run_modeSet.add(t.getRun_mode());
+            }
+            if (!run_typeSet.contains(t.getRun_type().toUpperCase(Locale.ROOT))) {
+                if (t.getRun_type() != null) {
+                    run_type.append(t.getRun_type().toUpperCase(Locale.ROOT)).append(", ");
+                    run_typeSet.add(t.getRun_type().toUpperCase(Locale.ROOT));
+                }
+            }
+
+
+        }
+        if (!(run_mode.toString().equals("null, ") || run_mode.length() == 0)) {
+            run_mode = new StringBuilder(run_mode.substring(0, run_mode.length() - 2));
+            data.put("Run Mode", run_mode.toString());
+        } else {
+            data.put("Run Mode", null);
+        }
+
+        if (!(run_type.toString().equals("null, ") || run_type.length() == 0)) {
+            run_type = new StringBuilder(run_type.substring(0, run_type.length() - 2));
+            data.put("Run Type", run_type.toString());
+        } else {
+            data.put("Run Type", null);
+        }
+
+        if (testcaseList!=null && !testcaseList.isEmpty() && testcaseList.get(0).getJob_name() != null) {
+            data.put("Job Name", testcaseList.get(0).getJob_name());
+        } else {
+            data.put("Job Name", null);
+        }
+
+        return data;
+
+    }
+
+    public static Object createBuildHeaders(SuiteExeDto getSuite) {
+        HashMap<String, Object> data = new HashMap<>();
+        data.put("Build ID", getSuite.getBuild_id());
+        data.put("Sprint Name", getSuite.getSprint_name());
+
+        return data;
+    }
+
+    public static Object createInfraAndUserHeaders(List<TestExeDto> testcaseList, SuiteExeDto getSuite, String dataCategory) {
+        StringBuilder machine = new StringBuilder();
+        String os = getSuite.getOs();
+        StringBuilder base_user = new StringBuilder();
+        StringBuilder token_user = new StringBuilder();
+        String framework_version = getSuite.getFramework_version();
+        String framework_name = getSuite.getFramework_name();
+
+        Set<String> machineSet = new HashSet<>();
+        Set<String> baseUserSet = new HashSet<>();
+        Set<String> tokenUserSet = new HashSet<>();
+        Map<String, Object> data = new HashMap<>();
+
+        if (dataCategory.equalsIgnoreCase("infraDetails")) {
+            for (TestExeDto t : testcaseList) {
+                if (t.getMachine() != null) {
+                    if (!machineSet.contains(t.getMachine())) {
+                        machine.append(t.getMachine()).append(", ");
+                        machineSet.add(t.getMachine());
+                    }
+                }
+
+            }
+
+            if (!(machine.toString().equals("null, ") || machine.length() == 0)) {
+                machine = new StringBuilder(machine.substring(0, machine.length() - 2));
+                data.put("Machine", machine.toString());
+            } else if (getSuite.getMachine()!=null) {
+                data.put("Machine",getSuite.getMachine());
+            }
+            else {
+                data.put("Machine", null);
+            }
+
+            if (!(os == null || os.length() == 0)) {
+                data.put("OS", os);
+            } else {
+                data.put("OS", null);
+            }
+
+            if (!(framework_name == null || framework_name.length() == 0) && !(framework_version == null || framework_version.length() == 0)) {
+                data.put("Framework", framework_name+" "+framework_version);
+            }
+
+
+        }
+
+        if (dataCategory.equalsIgnoreCase("userDetails")) {
+
+            for (TestExeDto t : testcaseList) {
+                if (t.getToken_user() != null) {
+                    if (!tokenUserSet.contains(t.getToken_user().toArray(new String[t.getToken_user().size()])[0])) {
+                        token_user.append(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]).append(",");
+                        tokenUserSet.add(t.getToken_user().toArray(new String[t.getToken_user().size()])[0]);
+                    }
+                }
+                if (t.getBase_user() != null) {
+                    if (!baseUserSet.contains(t.getBase_user())) {
+                        base_user.append(t.getBase_user()).append(",");
+                        baseUserSet.add(t.getBase_user());
+                    }
+                }
+
+            }
+
+            if (!(base_user.toString().equals("null,") || base_user.length() == 0)) {
+                base_user = new StringBuilder(base_user.substring(0, base_user.length() - 1));
+                data.put("Machine Base User", base_user.toString());
+            } else if (getSuite.getUser()!=null) {
+                data.put("Machine base user",getSuite.getUser());
+            } else {
+                data.put("Machine Base User", null);
+            }
+
+            if (!(token_user.toString().equals("null,") || token_user.length() == 0)) {
+                token_user = new StringBuilder(token_user.substring(0, token_user.length() - 1));
+                data.put("Jewel Token User", token_user.toString());
+            } else {
+                data.put("Jewel Token User", null);
+            }
+
+        }
+
+        return data;
+
+    }
+
+    public static Object createExecutionInfoHeaders(SuiteExeDto getSuite) {
+        Map<String, Object> data = new HashMap<String, Object>();
+        data.put("Status", getSuite.getStatus());
+        data.put("Project Name", StringUtils.capitalize(getSuite.getProject_name()));
+        data.put("Env", StringUtils.capitalize(getSuite.getEnv()));
+        data.put("Report Name", StringUtils.capitalize(getSuite.getReport_name()));
+
+        return data;
     }
 
     public void populateResultWithTestExes(
@@ -666,11 +874,19 @@ public class ReportUtils {
                 }
             }
             ObjectMapper oMapper = new ObjectMapper();
-            LinkedHashMap<String, Object> map = oMapper.convertValue(testExe, LinkedHashMap.class);
+            ModelMapper modelMapper = new ModelMapper();
+            TestExeDto2 customDto = modelMapper.map(testExe, TestExeDto2.class);
+            LinkedHashMap<String, Object> map = oMapper.convertValue(customDto, LinkedHashMap.class);
             if (testExe.getUser_defined_data() != null) {
                 map.putAll(testExe.getUser_defined_data());
             }
             depopulateMap(map);
+            map.remove("category");
+            map.remove("machine");
+            map.remove("base_user");
+            map.remove("invoke_user");
+            map.remove("token_user");
+            map.remove("job_name");
             testcaseDetailsHeaders.remove("classificationDetails");
             testcaseDetailsHeaders.remove("stepVarianceIds");
             testcaseDetailsHeaders.addAll(map.keySet());
@@ -711,10 +927,10 @@ public class ReportUtils {
         testcaseDetailsHeaders.remove("varianceId");
         testcaseDetails.put("data", testcaseDetailsData);
         testcaseDetails.put("headers", testcaseDetailsHeaders);
-        Map<String, Object> iconMap = getMapAccordingToSuiteVarianceAndFalsePositive(suiteVarianceIsActive, suiteFalsePositiveIsActive, suiteVarianceIsThere, suiteFalsePositiveIsThere);
+
         Map<String, Long> testcaseInfo = new TreeMap<>(Collections.reverseOrder());
         for (String status : statuses) {
-            testcaseInfo.put(status, ReportUtils.getStatusWiseCount(getSuite.getS_run_id(), status));
+            testcaseInfo.put(status, RestApiUtils.getStatusWiseCount(getSuite.getS_run_id(), status));
             if (StatusColor.valueOf(status.toUpperCase()).priority < currentPriority) {
                 log.info(
                         StatusColor.valueOf(status.toUpperCase()).priority + "-----" + currentPriority);
@@ -723,21 +939,21 @@ public class ReportUtils {
                 log.info("------" + StatusColor.valueOf(status.toUpperCase()).priority);
             }
         }
-        Long sumOthers = 0L;
-
-        Iterator<Map.Entry<String, Long>> iterator = testcaseInfo.entrySet().iterator();
-
-        while (iterator.hasNext()) {
-
-            Map.Entry<String, Long> entry = iterator.next();
-
-            if (!List.of("PASS", "FAIL").contains(entry.getKey())){
-                sumOthers += entry.getValue();
-                iterator.remove();
-            }
-        }
-
-        testcaseInfo.put("OTHERS", sumOthers);
+//        Long sumOthers = 0L;
+//
+//        Iterator<Map.Entry<String, Long>> iterator = testcaseInfo.entrySet().iterator();
+//
+//        while (iterator.hasNext()) {
+//
+//            Map.Entry<String, Long> entry = iterator.next();
+//
+//            if (!List.of("PASS", "FAIL").contains(entry.getKey())){
+//                sumOthers += entry.getValue();
+//                iterator.remove();
+//            }
+//        }
+//
+//        testcaseInfo.put("OTHERS", sumOthers);
 
         if (expectedStatus.equalsIgnoreCase("EXE")) {
             expectedStatus = "PASS";
@@ -764,14 +980,23 @@ public class ReportUtils {
 
         exeData.put("expected_completion",
                 Math.round(ReportUtils.getTimeRemainingNew(getSuite, ans)));
-        result.put("Infra Headers", ReportUtils.createInfraHeadersData(getSuite));
+        result.put("Infra Headers", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "infraDetails"));
+        result.put("User Details", ReportUtils.createInfraAndUserHeaders(tempTest, getSuite, "userDetails"));
+        result.put("Execution details", ReportUtils.createExecutionDetailsHeaders(tempTest));
 
-        if (statuses.isEmpty()) {
-            testcaseInfo = null;
-        }
-        result.put("Execution Headers", ReportUtils.createExecutionHeadersDataWithVarianceAndFalsePositive(getSuite, iconMap));
-        exeData.put("testcase_info", testcaseInfo);
-        List<String> columns = RestApiUtils.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
+        testcaseInfo.put("EXE",getSuite.getExpected_testcases() - testcaseCountWithoutExe);
+
+//        if (statuses.isEmpty()) {
+//            testcaseInfo = null;
+//        }
+
+        Map<String,Object> tcInfoData = new HashMap<>();
+        List<Map.Entry<String, Long>> legend = new ArrayList<>(testcaseInfo.entrySet());
+        tcInfoData.put("value", ReportUtils.createDoughnutChart(testcaseInfo));
+        tcInfoData.put("legend", legend);
+        exeData.put("testcase_info", tcInfoData);
+
+        List<String> columns = columnMappingService.findColumnMapping(project.getPid(), getSuite.getReport_name(), new ArrayList<>(frameworks));
         if (columns != null && !columns.isEmpty()) {
             List<String> headers = new ArrayList<>();
             for (String header : testcaseDetailsHeaders) {
@@ -819,7 +1044,7 @@ public class ReportUtils {
         UserDto userDto = getUsernameAndIsDeleted(username, false);
         if (userDto == null) {
             log.error("Error occurred while trying to fetch user for username: {}", username);
-            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, FAILURE, HttpStatus.NOT_ACCEPTABLE);
+            throw new CustomDataException(USER_DETAILS_NOT_FOUND, null, Failure, HttpStatus.NOT_ACCEPTABLE);
         }
         log.info("User details from servlet request: {}", userDto);
         return userDto;
@@ -928,9 +1153,36 @@ public class ReportUtils {
         if (project == null) {
             return false;
         }
-        Query query = new Query(Criteria.where("pid").is(project.getPid()).and("username").is(user.getUsername()).and("status").is("ACTIVE"));
-        ProjectRoleDto projectRole = mongoOperations.findOne(query, ProjectRoleDto.class);
+        ProjectRoleDto projectRole = getActiveProjectRole(project.getPid(), user.getUsername());
         return projectRole != null || ((user.getRole().equalsIgnoreCase(ADMIN.toString()) && project.getRealcompanyname().equalsIgnoreCase(user.getRealCompany())) || user.getRole().equalsIgnoreCase(UserRole.SUPER_ADMIN.toString()));
+    }
+
+    public static ProjectRoleDto getActiveProjectRole(Long pid, String username) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SecurityContextHolder.getContext().getAuthentication().getCredentials().toString());
+        HttpEntity httpEntity = new HttpEntity(null, headers);
+        Map<String, Object> uriVariables = new HashMap<>();
+        String url = projectManagerUrl + "/v2/project/role/entity?pid={pid}&userName={username}&status=ACTIVE";
+        uriVariables.put("username", username);
+        uriVariables.put("pid", pid);
+        ProjectRoleDto projectRole;
+        try {
+            ResponseEntity response = restTemplate.exchange(url, HttpMethod.GET, httpEntity, Object.class,
+                    uriVariables);
+            Gson gson = new Gson();
+            String json = gson.toJson(response.getBody());
+            Map<String, Object> convertedMap = gson.fromJson(json, new com.google.gson.reflect.TypeToken<Map<String, Object>>() {
+            }.getType());
+            Object data = convertedMap.get("data");
+            Type type = new com.google.gson.reflect.TypeToken<ProjectRoleDto>() {
+            }.getType();
+            projectRole = gson.fromJson(gson.toJson(data), type);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.warn("Error occurred due to ProjectRole details not found for username: {}", username);
+            return null;
+        }
+        log.info("Project Role Details ==> {}", projectRole);
+        return projectRole;
     }
 
 //    public static Map<String, Object> getAllTestExesForTcRunId(RuleApi payload, Integer pageNo, Integer sort,
@@ -1107,13 +1359,12 @@ public class ReportUtils {
         int failCount = 0;
         int transitions = 0;
 
-        TestExeCommonDto prevTestExe = testExes.get(0);
-        for (int i = 1; i < totalTestExes; i++) {
-            TestExeCommonDto currentTestExe = testExes.get(i);
+        TestExeCommonDto prevTestExe = null;
+        for (TestExeCommonDto currentTestExe : testExes) {
             if (currentTestExe.getStatus().equalsIgnoreCase("FAIL")) {
                 failCount++;
             }
-            if (isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
+            if (prevTestExe != null && isTransition(prevTestExe.getStatus(), currentTestExe.getStatus())) {
                 transitions++;
             }
             prevTestExe = currentTestExe;
@@ -1124,7 +1375,7 @@ public class ReportUtils {
         if (transitions == 0) {
             return 0.0;
         }
-        return Math.round((double) transitions / (totalTestExes - 1) * 100.0) / 100.0;
+        return Math.round((double) transitions / (totalTestExes/(double)2) * 100.0) / 100.0;
     }
 
     public static double brokenIndexForSuiteExe(List<SuiteExeDto> suites) {
@@ -1135,14 +1386,12 @@ public class ReportUtils {
         int failCount = 0;
         int transitions = 0;
 
-        SuiteExeDto prevSuite = suites.get(0);
-
-        for (int i = 1; i < totalSuites; i++) {
-            SuiteExeDto currentSuite = suites.get(i);
+        SuiteExeDto prevSuite = null;
+        for (SuiteExeDto currentSuite : suites) {
             if (currentSuite.getStatus().equalsIgnoreCase("FAIL")) {
                 failCount++;
             }
-            if (isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
+            if (prevSuite != null && isTransition(prevSuite.getStatus(), currentSuite.getStatus())) {
                 transitions++;
             }
             prevSuite = currentSuite;
@@ -1154,7 +1403,7 @@ public class ReportUtils {
             return 0.0;
         }
 
-        return Math.round((double) transitions / (totalSuites - 1) * 100.0) / 100.0;
+        return Math.round((double) transitions / (totalSuites/(double)2) * 100.0) / 100.0;
     }
 
     private static boolean isTransition(String status1, String status2) {
@@ -1409,7 +1658,7 @@ public class ReportUtils {
         testExeDiagnose.setMiscData((List<Map<String, Object>>) testExe.get("miscData"));
         testExeDiagnose.setUserDefinedData((Map<String, Object>) testExe.get("userDefinedData"));
         testExeDiagnose.setS_run_id((String) testExe.get("s_run_id"));
-        testExeDiagnose.setP_id((Long) suiteExe.get("p_id"));
+        testExeDiagnose.setP_id(((Double)suiteExe.get("p_id")).longValue());
         return testExeDiagnose;
     }
 
